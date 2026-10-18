@@ -44,6 +44,7 @@ Blender attendu dans `/Applications/Blender.app` ; sinon `BLENDER=/chemin/vers/b
 - `blender/scripts/export.py` : export GLB standard (vers `blender/out/`, hors dépôt), à utiliser aussi pour les `.blend` retouchés à la main.
 - `scripts/optimize-glb.mjs` : compression meshopt vers `public/assets/` ; KTX2 nécessite KTX-Software (`toktx`).
 - `blender/scripts/store_props.py` : mobilier et marchandises détaillés du magasin.
+- `blender/scripts/terrace_props.py` : charpente, bardage, silos, quais, palettes, camions et pupitre de la terrasse.
 - Occlusion ambiante bakée à l'export (couleur de sommet `AO`) ; `pnpm assets --no-ao` pour itérer vite ; propriété `ao_skip` pour exclure un objet.
 - `node scripts/inspect-glb.mjs <fichier.glb>` : triangles et sommets par nœud.
 - Après tout export : `pnpm test` vérifie noms, hiérarchie et échelle des nœuds.

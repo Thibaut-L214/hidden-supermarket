@@ -103,6 +103,15 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - Faces jamais visibles des marchandises (dessous, dos côté panneau central) supprimées.
 - Les enseignes d'allées `AISLE_SIGN_*` portent leur libellé en extra glTF (`label`) ; le texte est dessiné à l'exécution, des deux côtés.
 
+## Lot 2 : hangar, logistique et terrasse
+
+- Hangar : portiques, arbalétriers, pannes et faîtage sous le toit (visibles après la révélation), soubassement béton, bardage nervuré, ventilateurs à grille, salle des œufs avec porte sectionnelle et auvent de quai, silos détaillés (échelles, trappes, cônes de vidange, conduites d'alimentation). L'intérieur reste neutre ; aucune poule.
+- `ROOF_EGGS` est exclu du bake d'occlusion : retiré à la révélation, il ne doit pas assombrir ce qu'il couvrait.
+- Unités de la timeline : palettes (caisses ajourées sur palette, cartons filmés et cerclés) au lieu de blocs. Camions détaillés sans marque (cabine, vitrages, rétroviseurs, feux, essieux tandem, plateau à ridelles). Centre de conditionnement : portes de quai avec abris et butoirs, chariot élévateur statique.
+- Itinéraire de livraison redessiné à l'est des hangars (x = 45), marquages au sol ; plus aucune route ni aucun arbre ne traverse un bâtiment.
+- Garde-corps en verre (vue dégagée sur la ferme). Pupitre `LECTERN_PANEL_<FILIÈRE>` (contrat) : copie dans la scène du cartel affiché, le cartel DOM restant la source accessible.
+- Pas de chanfrein sur les objets vus de loin et nombreux (caisses, bardage) : invisible à plus de 15 m, coûteux en triangles.
+
 ## Entrées
 
 - Touches lues via `KeyboardEvent.code` : ZQSD (AZERTY) et WASD (QWERTY) correspondent aux mêmes codes physiques.

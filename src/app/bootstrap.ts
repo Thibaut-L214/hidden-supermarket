@@ -1,6 +1,7 @@
 import { Color, Fog, PMREMGenerator, PerspectiveCamera, Scene } from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { AssetError, AssetManager } from "../core/AssetManager";
+import { terraceNodes } from "../core/assetContract";
 import { EventBus } from "../core/EventBus";
 import { GameClock } from "../core/GameClock";
 import { GameState, canWalk, type GameEvents } from "../core/GameState";
@@ -25,6 +26,7 @@ import { Atmosphere } from "../world/Atmosphere";
 import { Soundscape } from "../world/Soundscape";
 import { CollisionWorld } from "../world/CollisionWorld";
 import { FPSController } from "../world/FPSController";
+import { CaptionPanel } from "../world/labels";
 import { EYE_HEIGHT, StoreWorld } from "../world/StoreWorld";
 import { createErrorLog, recoverFromError } from "./errors";
 import { createRenderer } from "./renderer";
@@ -248,13 +250,20 @@ function createWorld(store: StoreWorld) {
     player,
     hud: {
       setHint: (text) => hud.setHint("stage", text),
-      showCaption: (caption) => hud.showCaption(caption),
+      showCaption: (caption) => {
+        hud.showCaption(caption);
+        lectern?.show(caption);
+      },
     },
     reducedMotion: () => settings.reducedMotion,
     glance: (target) => fps.glanceAt(target),
   });
+  let lectern: CaptionPanel | null = null;
   transition.onModuleChange = (chain, root) => {
     const config = CHAINS[chain];
+    const panel = root?.getObjectByName(terraceNodes(chain).lectern);
+    lectern = panel ? new CaptionPanel(panel) : null;
+    lectern?.show(null);
     if (root && config) {
       atmosphere.shade(root);
       stage.attach(config, root);
