@@ -1,5 +1,6 @@
-// First-person camera: mouse look (pointer lock, or drag when the lock is unavailable) and
-// keyboard walking on flat floors. Keys are read by physical code, so ZQSD on AZERTY and WASD on
+// First-person camera: mouse look (pointer lock, or drag when the lock is unavailable),
+// keyboard walking on flat floors, and keyboard turning with ← / → (docs/GDD.md §04: look with
+// the keyboard as an alternative). Keys are read by physical code, so ZQSD on AZERTY and WASD on
 // QWERTY are the same keys (docs/DECISIONS.md, « Entrées »). No head bob or forced shake.
 import type { PerspectiveCamera, Vector3 } from "three";
 import { ease } from "../core/easing";
@@ -14,17 +15,21 @@ export interface View {
 }
 
 export type Direction = "forward" | "back" | "left" | "right";
+export type Control = Direction | "turnLeft" | "turnRight";
 
-export const KEY_BINDINGS: Readonly<Record<string, Direction>> = {
+export const KEY_BINDINGS: Readonly<Record<string, Control>> = {
   KeyW: "forward",
   ArrowUp: "forward",
   KeyS: "back",
   ArrowDown: "back",
   KeyA: "left",
-  ArrowLeft: "left",
   KeyD: "right",
-  ArrowRight: "right",
+  ArrowLeft: "turnLeft",
+  ArrowRight: "turnRight",
 };
+
+/** Keyboard turning speed, in radians per second (about 100° per second). */
+export const KEY_TURN_SPEED = 1.75;
 
 const PITCH_LIMIT = (85 * Math.PI) / 180;
 
@@ -58,9 +63,15 @@ export function blendView(a: View, b: View, t: number): View {
   return { yaw: a.yaw + turn * t, pitch: a.pitch + (b.pitch - a.pitch) * t };
 }
 
+/** Yaw change for one frame from ← / →; positive turns left, like the yaw itself. */
+export function turnDelta(held: ReadonlySet<Control>, speed: number, dt: number): number {
+  if (dt <= 0) return 0;
+  return ((held.has("turnLeft") ? 1 : 0) - (held.has("turnRight") ? 1 : 0)) * speed * dt;
+}
+
 /** Horizontal displacement for one frame; diagonals are not faster than straight lines. */
 export function walkDelta(
-  held: ReadonlySet<Direction>,
+  held: ReadonlySet<Control>,
   yaw: number,
   speed: number,
   dt: number,
@@ -81,7 +92,7 @@ export class FPSController {
   /** Called when the pointer lock is lost without being asked for (Échap, focus loss). */
   onLockLost: () => void = () => {};
 
-  private readonly held = new Set<Direction>();
+  private readonly held = new Set<Control>();
   private active = false;
   private dragging = false;
   private releasing = false;
@@ -152,6 +163,13 @@ export class FPSController {
       this.applyView();
       if (g.elapsed === g.seconds) this.glance = null;
     }
+    const turn = turnDelta(this.held, KEY_TURN_SPEED, dt);
+    if (turn !== 0) {
+      // Like the mouse, the keyboard takes the view back from an ongoing framing glance.
+      this.glance = null;
+      this.view = { ...this.view, yaw: this.view.yaw + turn };
+      this.applyView();
+    }
     const delta = walkDelta(this.held, this.view.yaw, this.settings.moveSpeed, dt);
     const p = this.camera.position;
     const next = this.collisions.move({ x: p.x, z: p.z }, delta);
@@ -163,15 +181,15 @@ export class FPSController {
   }
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
-    const direction = KEY_BINDINGS[event.code];
-    if (!direction || !this.active) return;
-    this.held.add(direction);
+    const control = KEY_BINDINGS[event.code];
+    if (!control || !this.active) return;
+    this.held.add(control);
     event.preventDefault();
   };
 
   private readonly onKeyUp = (event: KeyboardEvent) => {
-    const direction = KEY_BINDINGS[event.code];
-    if (direction) this.held.delete(direction);
+    const control = KEY_BINDINGS[event.code];
+    if (control) this.held.delete(control);
   };
 
   private readonly onMouseMove = (event: MouseEvent) => {

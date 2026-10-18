@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  KEY_BINDINGS,
   applyLook,
   blendView,
+  turnDelta,
   viewToward,
   walkDelta,
-  type Direction,
+  type Control,
 } from "../src/world/FPSController";
 
-const held = (...d: Direction[]) => new Set(d);
+const held = (...d: Control[]) => new Set(d);
 
 describe("walkDelta", () => {
   it("walks towards -Z at yaw 0", () => {
@@ -70,5 +72,27 @@ describe("blendView", () => {
   it("takes the shortest turn across ±π", () => {
     const mid = blendView({ yaw: 3, pitch: 0 }, { yaw: -3, pitch: 0 }, 0.5);
     expect(Math.abs(mid.yaw)).toBeGreaterThan(3);
+  });
+});
+
+describe("keyboard turning", () => {
+  it("binds ← / → to turning, ↑ / ↓ to walking, and keeps Q/D (A/D) for side steps", () => {
+    expect(KEY_BINDINGS.ArrowLeft).toBe("turnLeft");
+    expect(KEY_BINDINGS.ArrowRight).toBe("turnRight");
+    expect(KEY_BINDINGS.ArrowUp).toBe("forward");
+    expect(KEY_BINDINGS.ArrowDown).toBe("back");
+    expect(KEY_BINDINGS.KeyA).toBe("left");
+    expect(KEY_BINDINGS.KeyD).toBe("right");
+  });
+
+  it("turns left with a positive yaw change and right with a negative one", () => {
+    expect(turnDelta(held("turnLeft"), 2, 0.5)).toBeCloseTo(1);
+    expect(turnDelta(held("turnRight"), 2, 0.5)).toBeCloseTo(-1);
+    expect(turnDelta(held("turnLeft", "turnRight"), 2, 0.5)).toBe(0);
+    expect(turnDelta(held("turnLeft"), 2, 0)).toBe(0);
+  });
+
+  it("does not move the player when only turning", () => {
+    expect(walkDelta(held("turnLeft"), 0, 2, 1)).toEqual({ x: 0, z: 0 });
   });
 });

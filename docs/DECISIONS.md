@@ -96,6 +96,7 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 ## Entrées
 
 - Touches lues via `KeyboardEvent.code` : ZQSD (AZERTY) et WASD (QWERTY) correspondent aux mêmes codes physiques.
+- `←` / `→` tournent la vue (environ 100° par seconde) ; `↑` / `↓` avancent et reculent ; `Q`/`D` (`A`/`D`) restent des pas de côté. C'est l'alternative clavier à la souris prévue par GDD.md §04.
 - `E` est contextuel : scanner si une cible est visée, sinon interagir.
 
 ## Nommage du code
