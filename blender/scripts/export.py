@@ -1,11 +1,16 @@
 """Export the opened .blend to GLB with the project's standard settings.
 
 Usage (headless):
-  Blender -b <file.blend> -P blender/scripts/export.py -- <out.glb> [--no-ao]
+  Blender -b <file.blend> -P blender/scripts/export.py -- <out.glb> [--no-ao] [--lightmap]
 
-Before exporting, modifiers are applied and ambient occlusion is baked into vertex colours
-(COLOR_0), on the in-memory copy only: the .blend on disk is left untouched. --no-ao skips
-the bake for quick iterations.
+On the in-memory copy only (the .blend on disk is left untouched), before exporting:
+  1. modifiers are applied (chamfers, weighted normals);
+  2. UV0 is projected for the tileable surface sets and the goods normal atlas (surfaces.py);
+  3. --lightmap: interior lighting is baked into an atlas on a second UV layer (lightmap.py),
+     written next to the GLB as <name>.lightmap.jpg; --no-ao also skips it (quick iterations);
+  4. ambient occlusion is baked into vertex colours (COLOR_0) on the meshes the lightmap does
+     not cover. --no-ao skips it.
+Textures and the lightmap are bound to the materials afterwards by scripts/optimize-glb.mjs.
 
 Naming and hierarchy are checked afterwards by tests/assets.test.ts against
 src/core/assetContract.ts, so the contract lives in one place.
@@ -19,16 +24,29 @@ import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from common import bake_ambient_occlusion, export_glb  # noqa: E402
+from common import apply_modifiers, bake_ambient_occlusion, export_glb, rendered_meshes  # noqa: E402
+from lightmap import build_lightmap_uvs, bake_lightmap  # noqa: E402
+from surfaces import project_goods_uvs, project_surface_uvs  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
 paths = [a for a in argv if not a.startswith("--")]
 if not paths:
-    raise SystemExit("usage: export.py -- <out.glb> [--no-ao]")
+    raise SystemExit("usage: export.py -- <out.glb> [--no-ao] [--lightmap]")
 out = os.path.abspath(paths[0])
 os.makedirs(os.path.dirname(out), exist_ok=True)
+
+meshes = rendered_meshes()
+apply_modifiers(meshes)
+print(f"UV0 projected on {project_surface_uvs(meshes)} textured meshes, {project_goods_uvs(meshes)} product parts")
+lit = set()
+if "--lightmap" in argv:
+    layout = build_lightmap_uvs(meshes)
+    print(f"lightmap UVs: {layout['islands']} islands, {layout['density']:.1f} texels/m")
+    lit = {o.name for o in layout["baked"]}
+    if "--no-ao" not in argv:
+        bake_lightmap(layout["baked"], layout["floor"], os.path.splitext(out)[0] + ".lightmap.jpg")
 if "--no-ao" not in argv:
     started = time.time()
-    count = bake_ambient_occlusion()
+    count = bake_ambient_occlusion([o for o in meshes if o.name not in lit])
     print(f"AO baked on {count} meshes in {time.time() - started:.1f} s")
 export_glb(out)

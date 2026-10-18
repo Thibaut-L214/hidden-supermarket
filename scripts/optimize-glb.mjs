@@ -2,7 +2,7 @@
 // anchors, paths and spawn points are leaves), weld, reorder, then meshopt compression with
 // filters. No quantisation: it would move dequantisation scales into node transforms, and
 // the runtime relies on node pivots and unit scale (naming contract, doors, roof).
-// Usage: node scripts/optimize-glb.mjs <in.glb> <out.glb>
+// Usage: node scripts/optimize-glb.mjs <in.glb> <out.glb> [lightmap.jpg]
 import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -10,10 +10,11 @@ import { Logger, NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, EXTMeshoptCompression } from "@gltf-transform/extensions";
 import { dedup, prune, quantize, reorder, weld } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
+import { applyLightmap, applySurfaces } from "./lib/surfaces.mjs";
 
-const [input, output] = process.argv.slice(2);
+const [input, output, lightmap] = process.argv.slice(2);
 if (!input || !output) {
-  console.error("usage: optimize-glb.mjs <in.glb> <out.glb>");
+  console.error("usage: optimize-glb.mjs <in.glb> <out.glb> [lightmap.jpg]");
   process.exit(1);
 }
 
@@ -25,6 +26,9 @@ const io = new NodeIO()
 
 const doc = await io.read(input);
 doc.setLogger(new Logger(Logger.Verbosity.WARN));
+const surfaces = applySurfaces(doc);
+console.log(`  ${surfaces} matériau(x) texturé(s)`);
+if (lightmap) console.log(`  lightmap sur ${applyLightmap(doc, lightmap)} matériau(x)`);
 await doc.transform(
   dedup(),
   prune({ keepLeaves: true, keepExtras: true }),
