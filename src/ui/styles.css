@@ -1,0 +1,44 @@
+:root {
+  --ink: #1f2420;
+  --paper: #f7f4ec;
+  --error: #8a2b1e;
+  font-family: system-ui, sans-serif;
+  font-size: 18px;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #e6e1d5;
+  color: var(--ink);
+}
+
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#status {
+  position: absolute;
+  left: 50%;
+  bottom: 2rem;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.6rem 1rem;
+  border-radius: 0.4rem;
+  background: var(--paper);
+  max-width: min(36rem, calc(100% - 2rem));
+}
+
+#status:empty {
+  display: none;
+}
+
+#status[data-kind="error"] {
+  color: var(--error);
+  font-weight: 600;
+}
