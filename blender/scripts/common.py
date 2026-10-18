@@ -145,6 +145,7 @@ class MeshBuilder:
                 self.bm, cap_ends=True, segments=segments, radius1=radius, radius2=radius, depth=height, matrix=matrix
             ),
             mat,
+            smooth_sides=True,
         )
 
     def sphere(
@@ -353,25 +354,52 @@ def helper_volume(obj: bpy.types.Object) -> bpy.types.Object:
 
 def bevel(obj: bpy.types.Object, width: float = 0.008, segments: int = 1) -> bpy.types.Object:
     """Non-destructive chamfer on edges sharper than 50° (box edges, caps; not the facets of
-    coarse cylinders); applied at export with the other modifiers."""
+    coarse cylinders); applied at export with the other modifiers.
+
+    A face-area weighted normal modifier follows: flat faces stay flat while the chamfer strip
+    shades like a rounded edge, so it catches the light for the cost of one triangle strip."""
     mod = obj.modifiers.new("Chamfer", "BEVEL")
     mod.width = width
     mod.segments = segments
     mod.limit_method = "ANGLE"
     mod.angle_limit = math.radians(50)
     mod.use_clamp_overlap = True
+    mesh = obj.data
+    mesh.polygons.foreach_set("use_smooth", [True] * len(mesh.polygons))
+    normals = obj.modifiers.new("Normals", "WEIGHTED_NORMAL")
+    normals.mode = "FACE_AREA"
+    normals.weight = 50
+    normals.keep_sharp = True
+    normals.thresh = 0.01
     return obj
 
 
 AO_ATTRIBUTE = "AO"
 
 
-def bake_ambient_occlusion(samples: int = 24, distance: float = 0.8, strength: float = 0.75) -> int:
-    """Bakes ambient occlusion into a linear colour attribute on every rendered mesh.
+def rendered_meshes() -> list[bpy.types.Object]:
+    """Meshes that are drawn at runtime (colliders, triggers and the like are hidden from render)."""
+    return [o for o in bpy.context.scene.objects if o.type == "MESH" and not o.hide_render]
 
-    Modifiers are applied first (the bake needs final topology). The .blend on disk keeps them:
-    this runs on the in-memory copy just before export. `strength` < 1 softens the result to
-    keep the stylised, bright look (docs/DA.md §04). Returns the number of meshes baked.
+
+def apply_modifiers(objects) -> None:
+    """Replaces each object's mesh with its evaluated one (chamfers, custom normals) so UVs and
+    bakes see the final topology. The .blend on disk keeps the modifiers: this runs on the
+    in-memory copy just before export."""
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    for obj in objects:
+        if not obj.modifiers:
+            continue
+        mesh = bpy.data.meshes.new_from_object(obj.evaluated_get(depsgraph))
+        mesh.name = obj.data.name
+        obj.modifiers.clear()
+        obj.data = mesh
+
+
+def bake_ambient_occlusion(objects, samples: int = 24, distance: float = 0.8, strength: float = 0.75) -> int:
+    """Bakes ambient occlusion into a linear colour attribute on `objects` (modifiers already
+    applied). `strength` < 1 softens the result to keep the stylised, bright look
+    (docs/DA.md §04). Returns the number of meshes baked.
     """
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
@@ -385,17 +413,12 @@ def bake_ambient_occlusion(samples: int = 24, distance: float = 0.8, strength: f
     skipped = [o for o in scene.objects if o.get("ao_skip") and not o.hide_render]
     for obj in skipped:
         obj.hide_render = True
-    depsgraph = bpy.context.evaluated_depsgraph_get()
-    targets = [o for o in scene.objects if o.type == "MESH" and not o.hide_render]
+    targets = [o for o in objects if o.type == "MESH" and not o.hide_render]
     for obj in targets:
-        mesh = bpy.data.meshes.new_from_object(obj.evaluated_get(depsgraph))
-        mesh.name = obj.data.name
-        obj.modifiers.clear()
-        obj.data = mesh
         # Per point, not per face corner: neighbouring faces can share vertices in the GLB.
-        attr = mesh.color_attributes.new(AO_ATTRIBUTE, "FLOAT_COLOR", "POINT")
-        mesh.color_attributes.active_color = attr
-        mesh.color_attributes.render_color_index = mesh.color_attributes.find(AO_ATTRIBUTE)
+        attr = obj.data.color_attributes.new(AO_ATTRIBUTE, "FLOAT_COLOR", "POINT")
+        obj.data.color_attributes.active_color = attr
+        obj.data.color_attributes.render_color_index = obj.data.color_attributes.find(AO_ATTRIBUTE)
 
     bpy.ops.object.select_all(action="DESELECT")
     for obj in targets:

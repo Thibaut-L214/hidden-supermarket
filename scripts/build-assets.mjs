@@ -1,6 +1,7 @@
 // Builds blockout .blend files (only when missing), exports every .blend to GLB and optimises it.
 // Usage: pnpm assets [--rebuild] [--no-ao]
-//   --rebuild regenerates blockouts, overwriting the .blend; --no-ao skips the occlusion bake.
+//   --rebuild regenerates blockouts, overwriting the .blend; --no-ao skips the occlusion and
+//   lightmap bakes (the store reuses its last lightmap if the layout has not changed).
 // BLENDER env var overrides the Blender executable path.
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -15,6 +16,7 @@ const ASSETS = [
     blend: "blender/store.blend",
     builder: "blender/scripts/build_store.py",
     glb: "public/assets/store/store.glb",
+    lightmap: true,
   },
   {
     blend: "blender/scanner_hand.blend",
@@ -48,9 +50,13 @@ for (const asset of ASSETS) {
   // Raw export kept out of the repository, then optimised into public/.
   const raw = resolve("blender/out", asset.glb.split("/").pop());
   console.log(`→ export ${raw}`);
-  blender([blend, "-P", resolve("blender/scripts/export.py"), "--", raw, ...(noAo ? ["--no-ao"] : [])]);
+  const flags = [...(noAo ? ["--no-ao"] : []), ...(asset.lightmap ? ["--lightmap"] : [])];
+  blender([blend, "-P", resolve("blender/scripts/export.py"), "--", raw, ...flags]);
   console.log(`→ optimise ${asset.glb}`);
-  execFileSync(process.execPath, [resolve("scripts/optimize-glb.mjs"), raw, resolve(asset.glb)], {
+  // With --no-ao the lightmap is not rebaked: the last one is reused when it exists.
+  const lightmap = resolve(raw.replace(/\.glb$/, ".lightmap.jpg"));
+  const extra = asset.lightmap && existsSync(lightmap) ? [lightmap] : [];
+  execFileSync(process.execPath, [resolve("scripts/optimize-glb.mjs"), raw, resolve(asset.glb), ...extra], {
     stdio: "inherit",
   });
 }

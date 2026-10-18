@@ -1,4 +1,4 @@
-import type { Object3D, WebGLRenderer } from "three";
+import { type Material, type Mesh, type Object3D, type Texture, type WebGLRenderer } from "three";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { type GLTF, GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
@@ -20,6 +20,8 @@ export class AssetManager {
   private readonly cache = new Map<string, Promise<Object3D>>();
   /** Load and validation time of each asset, in milliseconds (docs/TECH.md §07). */
   readonly timings = new Map<string, number>();
+  /** Anisotropic filtering for tiled surface textures: floors and walls are seen at a grazing angle. */
+  private anisotropy = 1;
 
   /**
    * GLBs are meshopt-compressed by scripts/optimize-glb.mjs; KTX2 textures, when present, are
@@ -27,6 +29,7 @@ export class AssetManager {
    */
   constructor(renderer?: WebGLRenderer) {
     if (renderer) {
+      this.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
       this.loader.setKTX2Loader(
         new KTX2Loader().setTranscoderPath("/basis/").detectSupport(renderer),
       );
@@ -63,10 +66,21 @@ export class AssetManager {
         nodes.push({ name: object.name, parentName: object.parent?.name || null });
       }
       if (isHiddenHelper(object.name)) object.visible = false;
+      this.filterTextures(object);
     });
     const errors = checkContract(nodes, contract);
     if (errors.length > 0) throw new AssetError(contract.url, errors.join(" ; "));
     this.timings.set(contract.url, performance.now() - started);
     return root;
+  }
+
+  private filterTextures(object: Object3D): void {
+    const material = (object as Mesh).material as Material | Material[] | undefined;
+    if (!material) return;
+    for (const entry of Array.isArray(material) ? material : [material]) {
+      for (const value of Object.values(entry)) {
+        if ((value as Texture | null)?.isTexture) (value as Texture).anisotropy = this.anisotropy;
+      }
+    }
   }
 }
