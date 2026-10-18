@@ -4,6 +4,7 @@ import { MeshoptDecoder } from "meshoptimizer";
 import { resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  SCANNER_CONTRACT,
   STORE_CONTRACT,
   TERRACE_EGGS_CONTRACT,
   checkContract,
@@ -59,7 +60,7 @@ describe("checkContract", () => {
   });
 });
 
-describe.each([STORE_CONTRACT, TERRACE_EGGS_CONTRACT])("$url", (contract) => {
+describe.each([STORE_CONTRACT, TERRACE_EGGS_CONTRACT, SCANNER_CONTRACT])("$url", (contract) => {
   let doc: Document;
 
   beforeAll(async () => {

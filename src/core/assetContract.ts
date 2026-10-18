@@ -103,6 +103,19 @@ export const TERRACE_EGGS_CONTRACT: AssetContract = {
   prefixes: [{ prefix: "COL_RAIL_", min: 3 }],
 };
 
+/** First-person scanner: hand and handheld terminal (docs/DA.md §05). */
+export const SCANNER_CONTRACT: AssetContract = {
+  url: "/assets/shared/scanner_hand.glb",
+  required: ["SCANNER_ROOT", "SCANNER_BODY", "SCANNER_SCREEN", "SCANNER_WINDOW", "SCANNER_HAND"],
+  parents: {
+    SCANNER_BODY: "SCANNER_ROOT",
+    SCANNER_SCREEN: "SCANNER_ROOT",
+    SCANNER_WINDOW: "SCANNER_ROOT",
+    SCANNER_HAND: "SCANNER_ROOT",
+  },
+  prefixes: [],
+};
+
 export interface ContractNode {
   name: string;
   parentName: string | null;

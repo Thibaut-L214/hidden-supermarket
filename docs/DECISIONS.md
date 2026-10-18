@@ -128,6 +128,14 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - Bénévoles : figures stylisées sans traits du visage, posture calme, tract vierge à la main, carnations, coiffures et vêtements variés, sacoche ou chignon pour les distinguer ; tous à l'écart du passage. Stand à jupe unie, piles de tracts et kakémono vierges.
 - Le passage de l'entrée au déclencheur du parvis reste dégagé (vérifié en jeu).
 
+## Scanner tenu en main
+
+- Le point de visée est remplacé par une main droite stylisée tenant un terminal d'inventaire rectangulaire (`scanner_hand.glb`, contrat `SCANNER_CONTRACT`) : un outil de magasin tenu comme un téléphone, pas un pistolet (DA §05 : non militarisé).
+- Rendu en seconde passe par-dessus la scène (profondeur effacée) : l'outil ne traverse jamais les rayons ni les murs. Caméra dédiée à 50°, éclairage propre, sans brouillard.
+- L'écran du terminal affiche « Prêt / Visez un rayon », puis le nom du rayon visé, « Maintenir pour scanner » et la progression, puis « Scanné ». La fenêtre de scan s'allume pendant la visée, un trait discret la relie au centre de la vue.
+- Repères de visée sans point central : contour du rayon visé, invite texte (accessible) et écran du terminal.
+- L'outil est levé au magasin (`STORE`, `SCANNING`, `OPENING`), baissé sur la terrasse et à la sortie, masqué sous les dialogues ; levée et descente instantanées en mode « Réduire les mouvements ».
+
 ## Entrées
 
 - Touches lues via `KeyboardEvent.code` : ZQSD (AZERTY) et WASD (QWERTY) correspondent aux mêmes codes physiques.

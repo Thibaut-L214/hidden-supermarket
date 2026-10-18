@@ -17,6 +17,11 @@ const ASSETS = [
     glb: "public/assets/store/store.glb",
   },
   {
+    blend: "blender/scanner_hand.blend",
+    builder: "blender/scripts/build_scanner_hand.py",
+    glb: "public/assets/shared/scanner_hand.glb",
+  },
+  {
     blend: "blender/terrace_eggs.blend",
     builder: "blender/scripts/build_terrace_eggs.py",
     glb: "public/assets/eggs/terrace_eggs.glb",

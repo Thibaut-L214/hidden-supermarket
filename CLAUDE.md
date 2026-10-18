@@ -47,6 +47,7 @@ Blender attendu dans `/Applications/Blender.app` ; sinon `BLENDER=/chemin/vers/b
 - `blender/scripts/terrace_props.py` : charpente, bardage, silos, quais, palettes, camions et pupitre de la terrasse.
 - `blender/scripts/landscape_props.py` : relief, champs, routes, végétation, clôture et ligne électrique.
 - `blender/scripts/parvis_props.py` : façade, marquise, mobilier du parvis, stand et bénévoles.
+- `blender/scripts/build_scanner_hand.py` : main et terminal de scan en vue subjective (`public/assets/shared/`).
 - Occlusion ambiante bakée à l'export (couleur de sommet `AO`) ; `pnpm assets --no-ao` pour itérer vite ; propriété `ao_skip` pour exclure un objet.
 - `node scripts/inspect-glb.mjs <fichier.glb>` : triangles et sommets par nœud.
 - Après tout export : `pnpm test` vérifie noms, hiérarchie et échelle des nœuds.

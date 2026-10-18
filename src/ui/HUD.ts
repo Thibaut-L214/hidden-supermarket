@@ -1,6 +1,6 @@
 import type { Caption } from "../features/content/types";
 
-/** Reticle with scan progress, contextual prompt, and transient alerts. */
+/** Contextual prompt, captions and transient alerts (the scanner itself is drawn in 3D). */
 export class HUD {
   private aimText: string | null = null;
   /** Hints by source; the first non-empty one in insertion order is shown. */
@@ -14,22 +14,18 @@ export class HUD {
   }
 
   constructor(
-    private readonly reticle: HTMLElement,
     private readonly prompt: HTMLElement,
     private readonly status: HTMLElement,
     private readonly caption: HTMLElement,
   ) {}
 
   setVisible(visible: boolean): void {
-    this.reticle.hidden = !visible;
     this.prompt.hidden = !visible;
     this.caption.classList.toggle("dimmed", !visible);
   }
 
-  /** Shelf under the reticle (label) and hold progress in [0, 1]. */
-  setAim(label: string | null, progress: number): void {
-    this.reticle.toggleAttribute("data-targeted", label !== null);
-    this.reticle.style.setProperty("--progress", String(progress));
+  /** Shelf aimed at (label), for the text prompt; progress shows on the scanner's screen. */
+  setAim(label: string | null): void {
     this.aimText = label
       ? `Rayon ${label} : maintenez le clic ou appuyez sur E pour scanner.`
       : null;

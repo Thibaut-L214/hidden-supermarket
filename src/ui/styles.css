@@ -43,20 +43,6 @@ body,
   font-weight: 600;
 }
 
-#reticle {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
-  border-radius: 50%;
-  background: var(--paper);
-  box-shadow: 0 0 0 1.5px var(--ink);
-  pointer-events: none;
-}
-
-#reticle[hidden],
 .panel[hidden] {
   display: none;
 }
@@ -179,15 +165,6 @@ kbd {
 .disclaimer {
   font-size: 0.85rem;
   color: #5a5f58;
-}
-
-#reticle[data-targeted] {
-  width: 26px;
-  height: 26px;
-  margin: -13px 0 0 -13px;
-  background: conic-gradient(#3f5a3c calc(var(--progress, 0) * 1turn), rgb(247 244 236 / 70%) 0);
-  box-shadow: 0 0 0 1.5px var(--ink);
-  mask: radial-gradient(circle, transparent 7px, #000 8px);
 }
 
 #hud-prompt {

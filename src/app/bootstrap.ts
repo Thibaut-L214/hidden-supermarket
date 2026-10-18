@@ -13,6 +13,7 @@ import { ExitScene } from "../features/exit/ExitScene";
 import { TerraceTransition } from "../features/portal/TerraceTransition";
 import { findScanTargets } from "../features/scanner/ScanTarget";
 import { Scanner } from "../features/scanner/Scanner";
+import { ScannerView, scannerRaised } from "../features/scanner/ScannerView";
 import { EndMenu } from "../ui/EndMenu";
 import { HUD } from "../ui/HUD";
 import { IntroScreen } from "../ui/IntroScreen";
@@ -55,11 +56,17 @@ scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.5;
 pmrem.dispose();
 const camera = new PerspectiveCamera(70, 1, 0.05, 500);
+// Two passes per frame (scene, then the hand-held scanner over it): clear and count manually.
+renderer.autoClear = false;
+renderer.info.autoReset = false;
+/** First-person scanner, once its GLB is loaded (the game works without it). */
+let scannerView: ScannerView | null = null;
 
 function resize(): void {
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   camera.aspect = canvas.clientWidth / canvas.clientHeight;
   camera.updateProjectionMatrix();
+  scannerView?.setAspect(camera.aspect);
 }
 window.addEventListener("resize", resize);
 
@@ -73,7 +80,7 @@ const clock = new GameClock();
 const assets = new AssetManager(renderer);
 const collisions = new CollisionWorld();
 const fps = new FPSController(camera, canvas, collisions, settings, EYE_HEIGHT);
-const hud = new HUD(element("#reticle"), element("#hud-prompt"), status, element("#caption"));
+const hud = new HUD(element("#hud-prompt"), status, element("#caption"));
 const atmosphere = new Atmosphere(scene, renderer);
 const subtitles = new Subtitles(element("#subtitles"));
 const soundscape = new Soundscape(camera);
@@ -228,6 +235,7 @@ function createWorld(store: StoreWorld) {
   );
   scanner.onConfirm = (chainId) => {
     cue("scan");
+    scannerView?.confirm();
     hud.alert(`Rayon ${CHAINS[chainId]?.label ?? chainId} scanné.`, 3);
     game.send({ type: "SCAN_CONFIRMED", chainId });
   };
@@ -302,7 +310,7 @@ let lastFrame = 0;
 function frame(now: number): void {
   perf.frame(now);
   try {
-    step(clock.tick(now));
+    step(clock.tick(now), Math.min(Math.max((now - lastFrame) / 1000, 0), 0.1));
   } catch (error) {
     onRuntimeError(error);
   }
@@ -310,14 +318,29 @@ function frame(now: number): void {
   lastFrame = now;
 }
 
-function step(dt: number): void {
+function draw(): void {
+  renderer.info.reset();
+  renderer.clear();
+  renderer.render(scene, camera);
+  scannerView?.render(renderer);
+}
+
+function step(dt: number, realDt: number): void {
   fps.update(dt);
   if (world) {
     const { scanner, transition, stage, exit } = world;
     scanner.setEnabled(game.snapshot.state === "STORE" && !clock.paused);
     scanner.update(dt);
     const target = scanner.target?.chainId;
-    hud.setAim(target ? (CHAINS[target]?.label ?? target) : null, scanner.progress);
+    const label = target ? (CHAINS[target]?.label ?? target) : null;
+    hud.setAim(label);
+    const { state } = game.snapshot;
+    scannerView?.update(realDt, {
+      visible: !dialogOpen() && state !== "INTRO" && state !== "END_MENU",
+      raised: scannerRaised(state) && !clock.paused,
+      label,
+      progress: scanner.progress,
+    });
     // Aiming at a shelf is a strong hint: fetch its module now so the doors open sooner.
     const terrace = target ? CHAINS[target]?.terrace : undefined;
     if (terrace) assets.load(terrace).catch(() => {});
@@ -328,7 +351,7 @@ function step(dt: number): void {
   }
   soundscape.setPaused(clock.paused);
   soundscape.update(dt, game.snapshot.state, atmosphere.outdoor);
-  renderer.render(scene, camera);
+  draw();
 }
 
 async function loadStore(): Promise<void> {
@@ -340,6 +363,16 @@ async function loadStore(): Promise<void> {
     const spawn = store.spawnPose();
     fps.setPose(spawn.position, spawn.yaw);
     world = createWorld(store);
+    // The hand-held scanner is a nicety: a failed load leaves the shelf outline and the prompt.
+    scannerView = await ScannerView.load(
+      assets,
+      scene.environment,
+      () => settings.reducedMotion,
+    ).catch((error: unknown) => {
+      console.error(error);
+      return null;
+    });
+    scannerView?.setAspect(camera.aspect);
     status.textContent = "";
     intro.setReady();
   } catch (error) {
@@ -373,11 +406,14 @@ if (import.meta.env.DEV) {
       get world() {
         return world;
       },
+      get scannerView() {
+        return scannerView;
+      },
       /** Freezes the current frame in an overlay image (background tabs do not composite the canvas); false removes it. */
       async capture(show = true) {
         document.querySelector("#dev-capture")?.remove();
         if (!show) return;
-        renderer.render(scene, camera);
+        draw();
         const img = Object.assign(document.createElement("img"), {
           id: "dev-capture",
           src: canvas.toDataURL("image/jpeg", 0.85),
