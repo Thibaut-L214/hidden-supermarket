@@ -11,11 +11,13 @@ towards +Y. Distances to the buildings are compressed on purpose (docs/TECH.md �
 
 from __future__ import annotations
 
+import math
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+import landscape_props as land  # noqa: E402
 import terrace_props as props  # noqa: E402
 from common import MeshBuilder, bevel, box, empty, helper_volume, material, reset_scene, save_blend  # noqa: E402
 
@@ -25,6 +27,20 @@ GROUND_Z = -24.0
 # The store sits on a plinth; in this frame the store spans Y ∈ [-18.9, 0].
 STORE_HALF_W, STORE_BACK_Y = 12.3, -18.9
 HOUSE_HALF_L, HOUSE_H = 35.0, 4.0
+
+# Road network (axis-aligned centre lines, width). The delivery route runs east of the
+# henhouses (x = 45) and ends in front of the store's plinth, below the terrace.
+ROADS = [
+    ((HOUSE_HALF_L + 4.0, 35.0), (78.0, 35.0), 6.0),  # egg room dock → east
+    ((75.0, 32.0), (75.0, 100.0), 6.0),  # east → packing centre
+    ((42.0, 111.0), (60.0, 111.0), 6.0),  # packing centre → west
+    ((45.0, 8.0), (45.0, 114.0), 6.0),  # down the east side of the farm
+    ((14.0, 11.0), (48.0, 11.0), 6.0),  # → in front of the store
+]
+FARM_COMPOUND = (-50.0, 18.0, 42.0, 74.0)
+PACKING_YARD = (50.0, 92.0, 106.0, 130.0)
+# Behind the store, the plateau that carries the forecourt (store GLB, ground at -0.7).
+PLATEAU, PLATEAU_Z = (-45.0, -100.0, 45.0, -19.0), -0.8
 
 M = {}
 
@@ -36,7 +52,6 @@ def materials() -> None:
     M["plinth"] = material("M_TERRACE_FACADE", "#B9BFC2", roughness=0.9)
     M["rail"] = material("M_RAIL_METAL", "#8F969A", roughness=0.4, metallic=0.6)
     M["rail_panel"] = material("M_RAIL_PANEL", "#C9D3D6", roughness=0.2, metallic=0.1)
-    M["ground"] = material("M_GROUND_FIELDS", "#9FA083", roughness=1.0)
     M["road"] = material("M_ROAD", "#8A8A86", roughness=0.9)
     M["farm"] = material("M_FARM_WALL", "#B9AF9D", roughness=0.85)
     M["farm_floor"] = material("M_FARM_FLOOR", "#8C857A", roughness=0.95)
@@ -48,12 +63,6 @@ def materials() -> None:
     M["dock"] = material("M_DOCK_DOOR", "#5F666C", roughness=0.6, metallic=0.3)
     M["plant_annex"] = material("M_PLANT_ANNEX", "#D9DCDF", roughness=0.7)
     M["glass_dark"] = material("M_TRUCK_GLASS", "#2E3438", roughness=0.15, metallic=0.2)
-    M["field_a"] = material("M_FIELD_A", "#A9A57F", roughness=1.0)
-    M["field_b"] = material("M_FIELD_B", "#8F9873", roughness=1.0)
-    M["field_c"] = material("M_FIELD_C", "#B7AE8A", roughness=1.0)
-    M["hedge"] = material("M_HEDGE", "#6F7F5C", roughness=1.0)
-    M["trunk"] = material("M_TREE_TRUNK", "#6E5D4A", roughness=0.9)
-    M["foliage"] = material("M_TREE_FOLIAGE", "#7F9468", roughness=0.9)
     M["hill"] = material("M_HILL", "#9AA08A", roughness=1.0)
     M["crate"] = material("M_CRATE", "#7E9C88", roughness=0.8)
     M["carton"] = material("M_CARTON", "#D9C9A6", roughness=0.9)
@@ -63,6 +72,7 @@ def materials() -> None:
     M["plant"] = material("M_PLANT_WALL", "#C7CCD1", roughness=0.6, metallic=0.2)
     M["plant_roof"] = material("M_PLANT_ROOF", "#7C838A", roughness=0.6, metallic=0.3)
     props.materials()
+    land.materials()
 
 
 def terrace(root) -> None:
@@ -101,43 +111,43 @@ def terrace(root) -> None:
 
 
 def landscape(root) -> None:
-    box("GROUND_EGGS", (-250.0, -100.0, GROUND_Z - 0.2), (250.0, 400.0, GROUND_Z), M["ground"], root)
+    """Relief, field patchwork, roads, vegetation, fence and power line (lot 3)."""
+    road_rects = [land.road_rect(rd) for rd in ROADS]
+    flat = [FARM_COMPOUND, PACKING_YARD, (-STORE_HALF_W, STORE_BACK_Y, STORE_HALF_W, TERRACE_DEPTH)]
+    flat += [(x0 - 2.5, y0 - 2.5, x1 + 2.5, y1 + 2.5) for x0, y0, x1, y1 in road_rects]
+    terrain = land.Terrain(GROUND_Z, flat, PLATEAU, PLATEAU_Z)
+    terrain.build("TERRAIN_EGGS", (-250.0, -100.0, 250.0, 400.0), 5.0, (45.0, 55.0), root)
 
-    roads = MeshBuilder()
-    z0, z1 = GROUND_Z, GROUND_Z + 0.05
-    # The delivery route runs east of the henhouses (x = 45), never through them.
-    for (x0, y0), (x1, y1) in (
-        ((HOUSE_HALF_L + 4.0, 32.0), (78.0, 38.0)),  # egg room dock → east
-        ((72.0, 32.0), (78.0, 100.0)),  # east → packing centre
-        ((42.0, 108.0), (60.0, 114.0)),  # packing centre → west
-        ((42.0, -8.0), (48.0, 114.0)),  # down the east side of the farm
-        ((14.0, -8.0), (48.0, -2.0)),  # → beside the store
-    ):
-        roads.box((x0, y0, z0), (x1, y1, z1), M["road"])
-    roads.build("ROAD_EGGS", parent=root)
+    land.roads("ROAD_EGGS", ROADS, GROUND_Z, M["road"], root)
 
-    # Field patches, hedgerows and tree lines: depth cues, no claim about the site.
-    fields = MeshBuilder()
-    tones = (M["field_a"], M["field_b"], M["field_c"])
-    for i, (x0, y0, x1, y1) in enumerate((
-        (-120.0, 80.0, -40.0, 160.0), (-40.0, 130.0, 15.0, 200.0), (100.0, 20.0, 180.0, 90.0),
-        (100.0, 130.0, 170.0, 220.0), (-140.0, -20.0, -60.0, 60.0), (30.0, 140.0, 95.0, 210.0),
-    )):
-        fields.box((x0, y0, GROUND_Z), (x1, y1, GROUND_Z + 0.02), tones[i % 3])
-    fields.build("FIELDS_EGGS", parent=root)
+    # Hedgerows on some field boundaries (the lattice used for the patchwork).
+    hedges = []
+    for bx in range(-235, 240, 45):
+        for by in range(-65, 390, 55):
+            if math.hypot(bx, by - 60) > 230:
+                continue
+            h = land._hash(bx, by)
+            if h % 4 == 0:
+                hedges.append(((float(bx), float(by)), (float(bx), float(by + 55))))
+            if h % 5 == 1:
+                hedges.append(((float(bx), float(by)), (float(bx + 45), float(by))))
+    rows = [
+        ((52.0, 16.0), (52.0, 26.0), "poplar"),
+        ((52.0, 44.0), (52.0, 104.0), "poplar"),
+        ((46.0, 117.0), (60.0, 117.0), "round"),
+        ((18.0, 17.0), (40.0, 17.0), "round"),
+    ]
+    groves = [
+        (-90.0, 40.0, 12), (-130.0, 120.0, 15), (120.0, 60.0, 12), (140.0, 180.0, 14), (-60.0, 170.0, 10),
+        (20.0, 200.0, 12), (-170.0, -20.0, 10), (180.0, -40.0, 10), (90.0, 250.0, 14), (-110.0, 260.0, 12),
+    ]
+    land.vegetation("LAND_EGGS", terrain, rows, groves, hedges, root)
 
-    hedges = MeshBuilder()
-    for x0, y0, x1, y1 in ((-120.0, 78.0, -40.0, 80.0), (100.0, 18.0, 180.0, 20.0), (98.0, 20.0, 100.0, 90.0), (-42.0, 130.0, -40.0, 200.0)):
-        hedges.box((x0, y0, GROUND_Z), (x1, y1, GROUND_Z + 1.6), M["hedge"])
-    # Tree line along the delivery road, broken at the junction with the farm road.
-    line = [(51.0, float(yy)) for yy in range(2, 105, 9) if not 28 <= yy <= 42]
-    for x, y in line + [(float(xx), 117.0) for xx in range(46, 60, 7)]:
-        hedges.cylinder((x, y, GROUND_Z), 0.18, 2.4, M["trunk"], segments=6)
-        hedges.sphere((x, y, GROUND_Z + 3.6), 1.9, M["foliage"])
-    hedges.build("HEDGES_EGGS", parent=root)
+    land.perimeter_fence("FENCE_EGGS_FARM", (-48.0, 20.0, 40.5, 72.0), [(40.0, 30.0, 41.0, 40.0)], GROUND_Z, root)
+    land.power_line("POWER_LINE_EGGS", terrain, [(210.0, 140.0), (150.0, 120.0), (103.0, 118.0), (103.0, 82.0), (84.0, 48.0), (41.5, 46.0)], root)
 
     hills = MeshBuilder()
-    for x, y, rad, h in ((-180.0, 300.0, 90.0, 18.0), (60.0, 360.0, 120.0, 22.0), (220.0, 280.0, 80.0, 14.0)):
+    for x, y, rad, h in ((-180.0, 330.0, 90.0, 26.0), (60.0, 380.0, 120.0, 30.0), (220.0, 300.0, 80.0, 22.0)):
         hills.cone((x, y, GROUND_Z - 0.5), rad, h, M["hill"], segments=24)
     hills.build("HILLS_EGGS", parent=root)
 
@@ -257,8 +267,8 @@ def logistics(root) -> None:
             ((HOUSE_HALF_L + 4.0, 35.0), (75.0, 35.0)),
             ((75.0, 35.0), (75.0, 100.0)),
             ((45.0, 111.0), (60.0, 111.0)),
-            ((45.0, -5.0), (45.0, 111.0)),
-            ((14.0, -5.0), (45.0, -5.0)),
+            ((45.0, 11.0), (45.0, 111.0)),
+            ((14.0, 11.0), (45.0, 11.0)),
         ],
         GROUND_Z + 0.05,
         root,
@@ -267,7 +277,7 @@ def logistics(root) -> None:
     path("FARM", [(east + 6.0, 35.0), (56.0, 35.0), (72.0, 35.5), (75.0, 40.0), (75.0, 70.0), (75.0, 96.0)], root)
     path(
         "DELIVERY",
-        [(57.0, 111.0), (47.0, 111.0), (45.0, 104.0), (45.0, 60.0), (45.0, 10.0), (44.0, -3.5), (30.0, -5.0), (17.0, -5.0)],
+        [(57.0, 111.0), (47.0, 111.0), (45.0, 104.0), (45.0, 60.0), (45.0, 22.0), (44.0, 13.0), (32.0, 11.0), (17.0, 11.0)],
         root,
     )
 

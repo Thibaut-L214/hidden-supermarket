@@ -112,6 +112,15 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - Garde-corps en verre (vue dégagée sur la ferme). Pupitre `LECTERN_PANEL_<FILIÈRE>` (contrat) : copie dans la scène du cartel affiché, le cartel DOM restant la source accessible.
 - Pas de chanfrein sur les objets vus de loin et nombreux (caisses, bardage) : invisible à plus de 15 m, coûteux en triangles.
 
+## Lot 3 : paysage
+
+- Terrain en grille (cellules de 5 m) : plat sous les bâtiments, les routes et le socle du magasin (fondu sur 25 m), relief doux qui s'accentue vers l'horizon (bruit de Perlin, uniquement en surélévation), et plateau derrière le magasin qui porte le parvis (même altitude que le sol du parvis) : le magasin domine la plaine depuis une butte.
+- Mosaïque de champs par matériau de face sur un treillis de 45 × 55 m (prairie, blé, labour, culture, jachère), cour engravillonnée autour des zones plates.
+- Routes avec accotements gravillonnés et lignes de rive continues ; l'itinéraire de livraison se termine devant le socle du magasin, sous la terrasse, donc visible.
+- Haies en ellipsoïdes sur certaines limites de champs, arbres de trois essences (feuillus, conifères, peupliers en alignement), bosquets mêlés ; tout est déterministe.
+- Clôture d'enceinte de la ferme, loin des bâtiments, ouverte sur le chemin du camion : rien ne doit évoquer un parcours extérieur tant que le système d'élevage n'est pas choisi.
+- Ligne électrique sur poteaux bois, traverses, isolateurs et trois conducteurs en chaînette, du centre de conditionnement à la ferme.
+
 ## Entrées
 
 - Touches lues via `KeyboardEvent.code` : ZQSD (AZERTY) et WASD (QWERTY) correspondent aux mêmes codes physiques.

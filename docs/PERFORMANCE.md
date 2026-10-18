@@ -8,7 +8,7 @@ Budgets de référence : TECH.md §07 (60 fps visés, p95 < 25 ms, 30 fps stable
 - L'encart affiche : fps moyen et p95 du temps d'image (fenêtre glissante de 300 images), draw calls, triangles, géométries, textures, tas JS (Chrome uniquement), temps de chargement de chaque GLB.
 - Mesurer sur la fenêtre visible et au premier plan : un onglet masqué ne produit pas d'images.
 
-## Relevé du 2026-10-18, après les lots 1 et 2 (magasin, hangar et logistique) (Chrome, macOS, fenêtre 858 × 1072, devicePixelRatio 2)
+## Relevé du 2026-10-18, après les lots 1 à 3 (magasin, hangar et logistique, paysage) (Chrome, macOS, fenêtre 858 × 1072, devicePixelRatio 2)
 
 Compteurs de rendu, relevés par image dans le navigateur intégré. Ils ne dépendent pas du matériel. Entre parenthèses, les valeurs de l'étape 6, avant l'enrichissement.
 
@@ -17,13 +17,13 @@ Compteurs de rendu, relevés par image dans le navigateur intégré. Ils ne dép
 | Magasin, vue de départ (allée centrale) | 115 (54) | 135 656 (20 642) |
 | Magasin, le long des gondoles | 61 (20) | 68 648 (8 484) |
 | Magasin, vitrines réfrigérées | 43 | 52 760 |
-| Terrasse, chaîne en cours, regard sur le hangar | 110 (74) | 66 864 (13 146) |
+| Terrasse, chaîne en cours, regard sur le hangar et le paysage | 130 (74) | 190 608 (13 146) |
 | Parvis, vue vers l'extérieur | 20 (14) | 17 356 (2 772) |
 
 | Ressource | Export Blender | Optimisé (servi) | Transfert gzip | Chargement local |
 | --- | ---: | ---: | ---: | ---: |
 | `store.glb` | 11,8 Mo | 2,9 Mo | 793 Ko | 15 ms |
-| `terrace_eggs.glb` | 3,6 Mo | 899 Ko | 163 Ko | 15 ms |
+| `terrace_eggs.glb` | 7,1 Mo | 1,7 Mo | 609 Ko | 15 ms |
 
 `store.glb` contient 187 000 triangles et 333 000 sommets (`node scripts/inspect-glb.mjs public/assets/store/store.glb`). Les marchandises représentent l'essentiel : gondole Boissons 35 000 triangles, chaque vitrine 15 000.
 
