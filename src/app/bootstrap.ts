@@ -12,6 +12,7 @@ import { Scanner } from "../features/scanner/Scanner";
 import { HUD } from "../ui/HUD";
 import { IntroScreen } from "../ui/IntroScreen";
 import { PauseMenu } from "../ui/PauseMenu";
+import { RecapPanel } from "../ui/RecapPanel";
 import { beep } from "../ui/sound";
 import { Atmosphere } from "../world/Atmosphere";
 import { CollisionWorld } from "../world/CollisionWorld";
@@ -67,7 +68,12 @@ const hud = new HUD(reticle, element("#hud-prompt"), status, element("#caption")
 const atmosphere = new Atmosphere(scene, renderer);
 
 /** Systems that need the loaded store. */
-let world: { scanner: Scanner; transition: TerraceTransition; stage: TerraceStage } | null = null;
+let world: {
+  store: StoreWorld;
+  scanner: Scanner;
+  transition: TerraceTransition;
+  stage: TerraceStage;
+} | null = null;
 
 // Pause is a flag orthogonal to the game state (docs/DECISIONS.md).
 const pauseMenu = new PauseMenu(element("#pause"), settings, resume, () => {
@@ -78,10 +84,36 @@ const intro = new IntroScreen(element("#intro"), settings, () => {
   game.send({ type: "START" });
   resume();
 });
+const recap = new RecapPanel(element("#recap"), {
+  onReplay: () => {
+    recap.hide();
+    game.send({ type: "REPLAY" });
+    resume();
+  },
+  onReturn: () => {
+    recap.hide();
+    resume();
+    world?.transition.returnToStore();
+  },
+  onStay: () => {
+    recap.hide();
+    resume();
+  },
+});
 clock.setPaused("menu", true);
 
+// End of a chain: mark the shelf and open the recap with the pointer released.
+bus.on("stateChanged", ({ to, snapshot }) => {
+  const config = snapshot.activeChain ? CHAINS[snapshot.activeChain] : undefined;
+  if (to !== "RECAP" || !config) return;
+  world?.store.markExplored(config.id);
+  fps.deactivate();
+  hud.setVisible(false);
+  recap.show(config);
+});
+
 function pause(): void {
-  if (pauseMenu.visible || !canWalk(game.snapshot.state)) return;
+  if (pauseMenu.visible || recap.visible || !canWalk(game.snapshot.state)) return;
   clock.setPaused("menu", true);
   fps.deactivate();
   hud.setVisible(false);
@@ -97,7 +129,7 @@ function resume(): void {
 
 fps.onLockLost = pause;
 document.addEventListener("keydown", (event) => {
-  if (event.code !== "KeyP" || event.repeat) return;
+  if (event.code !== "KeyP" || event.repeat || recap.visible) return;
   if (pauseMenu.visible) resume();
   else pause();
 });
@@ -148,7 +180,7 @@ function createWorld(store: StoreWorld) {
       stage.attach(config, root);
     } else stage.detach();
   };
-  return { scanner, transition, stage };
+  return { store, scanner, transition, stage };
 }
 
 function frame(now: number): void {

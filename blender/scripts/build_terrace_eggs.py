@@ -42,6 +42,11 @@ def materials() -> None:
     M["placeholder"] = material("M_PLACEHOLDER", "#D8D2C4", roughness=0.9)
     M["placeholder_alt"] = material("M_PLACEHOLDER_ALT", "#A8B3B8", roughness=0.8)
     M["farm_roof"] = material("M_FARM_ROOF", "#7F7A72", roughness=0.7, metallic=0.2)
+    M["crate"] = material("M_CRATE", "#7E9C88", roughness=0.8)
+    M["carton"] = material("M_CARTON", "#D9C9A6", roughness=0.9)
+    M["truck_cab"] = material("M_TRUCK_CAB", "#E6E4DE", roughness=0.5, metallic=0.1)
+    M["truck_bed"] = material("M_TRUCK_BED", "#8F969A", roughness=0.6, metallic=0.3)
+    M["truck_wheel"] = material("M_TRUCK_WHEEL", "#3E4245", roughness=0.9)
     M["plant"] = material("M_PLANT_WALL", "#C7CCD1", roughness=0.6, metallic=0.2)
     M["plant_roof"] = material("M_PLANT_ROOF", "#7C838A", roughness=0.6, metallic=0.3)
 
@@ -135,6 +140,51 @@ def interior(root, y0: float, y1: float) -> None:
     b.build("INTERIOR_EGGS", parent=root)
 
 
+def crate_group(name: str, origin, layout, size, mat, parent):
+    """Empty holding one mesh per unit, so the timeline can show or hide them one by one."""
+    group = empty(name, origin, parent)
+    sx, sy, sz = size
+    for i, (gx, gy, gz) in enumerate(layout, start=1):
+        lo = (gx * (sx + 0.15), gy * (sy + 0.15), gz * sz)
+        MeshBuilder().box(lo, (lo[0] + sx, lo[1] + sy, lo[2] + sz), mat).build(f"{name}_{i:02d}", parent=group)
+    return group
+
+
+def truck(name: str, cargo: str, cargo_size, location, parent):
+    """Unbranded rigid truck facing Blender +Y (glTF -Z), origin on the ground at its centre."""
+    root = empty(name, location, parent)
+    b = MeshBuilder()
+    b.box((-1.2, 2.2, 0.4), (1.2, 4.2, 3.0), M["truck_cab"])  # cab at the front
+    b.box((-1.2, -4.2, 0.9), (1.2, 2.0, 1.2), M["truck_bed"])  # flat bed
+    for y in (-3.2, 3.2):
+        b.box((-1.3, y - 0.5, 0.0), (1.3, y + 0.5, 0.9), M["truck_wheel"])
+    b.build(f"{name}_BODY", parent=root)
+    crate_group(cargo, (-1.05, -4.0, 1.2), [(x, y, 0) for y in range(3) for x in range(2)], cargo_size, M["crate"], root)
+    return root
+
+
+def path(route: str, points, parent) -> None:
+    """Ordered empties PATH_<route>_<NN>; glTF has no curves, the runtime rebuilds a spline."""
+    for i, (x, y) in enumerate(points):
+        empty(f"PATH_EGGS_{route}_{i:02d}", (x, y, GROUND_Z + 0.05), parent)
+
+
+def logistics(root) -> None:
+    """Schematic flow (docs/GDD.md §06.4): collection at the henhouse, crates by truck to the
+    packing centre, packed goods by truck towards the store. No animal transport here."""
+    g = GROUND_Z + 0.05
+    east = HOUSE_HALF_L
+    box("DOCK_EGGS_FARM", (east, 29.0, GROUND_Z), (east + 4.0, 37.0, g), M["road"], root)
+    crate_group("CRATES_EGGS_COLLECT", (east + 0.4, 30.0, g), [(x, y, 0) for y in range(3) for x in range(2)], (1.0, 1.0, 1.0), M["crate"], root)
+    crate_group("CARTONS_EGGS_PACKED", (54.0, 101.0, g), [(x, y, 0) for y in range(2) for x in range(2)], (1.4, 1.4, 1.2), M["carton"], root)
+
+    truck("TRUCK_EGGS_FARM", "CARGO_EGGS_FARM", (0.9, 0.9, 0.9), (east + 6.0, 35.0, g), root)
+    truck("TRUCK_EGGS_DELIVERY", "CARGO_EGGS_DELIVERY", (0.9, 1.6, 1.0), (57.0, 111.0, g), root)
+
+    path("FARM", [(east + 6.0, 35.0), (56.0, 35.0), (72.0, 35.5), (75.0, 40.0), (75.0, 70.0), (75.0, 96.0)], root)
+    path("DELIVERY", [(57.0, 111.0), (40.0, 111.0), (24.0, 110.0), (21.0, 104.0), (21.0, 60.0), (21.0, 20.0), (21.0, -2.0)], root)
+
+
 def main() -> None:
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     if not argv:
@@ -145,6 +195,7 @@ def main() -> None:
     terrace(root)
     landscape(root)
     buildings(root)
+    logistics(root)
     save_blend(os.path.abspath(argv[0]))
 
 

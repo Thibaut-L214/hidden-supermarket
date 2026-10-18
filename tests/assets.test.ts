@@ -8,6 +8,7 @@ import {
   type AssetContract,
   type ContractNode,
 } from "../src/core/assetContract";
+import { eggs } from "../src/data/chains/eggs";
 
 function contractNodes(doc: Document): ContractNode[] {
   return doc
@@ -66,5 +67,28 @@ describe.each([STORE_CONTRACT, TERRACE_EGGS_CONTRACT])("$url", (contract) => {
       .filter((node) => node.getScale().some((s) => Math.abs(s - 1) > 1e-6))
       .map((node) => node.getName());
     expect(scaled).toEqual([]);
+  });
+});
+
+describe("eggs timeline objects", () => {
+  it("exist in the terrace GLB, with at least two points per path", async () => {
+    const doc = await new NodeIO().read(resolve("public", `.${TERRACE_EGGS_CONTRACT.url}`));
+    const names = new Set(
+      doc
+        .getRoot()
+        .listNodes()
+        .map((n) => n.getName()),
+    );
+    const missing: string[] = [];
+    for (const step of eggs.timeline) {
+      for (const name of [step.from, step.to, step.vehicle]) {
+        if (name && !names.has(name)) missing.push(name);
+      }
+      if (step.pathId) {
+        const points = [...names].filter((n) => n.startsWith(`${step.pathId}_`));
+        if (points.length < 2) missing.push(`${step.pathId}_NN (${points.length})`);
+      }
+    }
+    expect(missing).toEqual([]);
   });
 });

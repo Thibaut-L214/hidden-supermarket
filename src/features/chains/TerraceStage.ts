@@ -1,13 +1,16 @@
-// Terrace staging (docs/GDD.md §03.5–6, §06.2–3): first contextualisation on the terrace,
-// viewpoint at the guardrail, roof reveal with a short caption on the system shown.
+// Terrace staging (docs/GDD.md §03.5–7, §06.2–4): first contextualisation on the terrace,
+// viewpoint at the guardrail, roof reveal with a caption on the system shown, then the
+// chain's schematic timeline with one caption per step.
 import { type Object3D, Vector3 } from "three";
 import { terraceNodes } from "../../core/assetContract";
 import type { EventBus } from "../../core/EventBus";
 import type { GameEvents, GameState } from "../../core/GameState";
 import type { Vec2 } from "../../world/CollisionWorld";
 import type { Caption } from "../content/types";
-import type { ChainConfig } from "./ChainModule";
+import { type ChainConfig, captionById } from "./ChainModule";
+import { ChainTimeline } from "./ChainTimeline";
 import { RoofReveal } from "./RoofReveal";
+import { TimelineDirector } from "./TimelineDirector";
 
 /** Distance to ANCHOR_*_VIEW, in metres, at which the player counts as at the viewpoint. */
 export const VIEW_RADIUS = 1.6;
@@ -35,13 +38,18 @@ interface Stage {
   view: Object3D;
   focus: Object3D;
   roof: RoofReveal;
+  scene: ChainTimeline;
+  director: TimelineDirector;
+  caption: string | null;
   welcomed: boolean;
 }
 
 export class TerraceStage {
   private stage: Stage | null = null;
   private readonly local = new Vector3();
-  private readonly reveals = new WeakMap<Object3D, RoofReveal>();
+  // Modules are cached by the asset manager: reuse what is built on them (material copies,
+  // guide marker) instead of rebuilding it on every visit.
+  private readonly built = new WeakMap<Object3D, { roof: RoofReveal; scene: ChainTimeline }>();
 
   constructor(private readonly deps: TerraceStageDeps) {
     deps.bus.on("stateChanged", ({ to }) => {
@@ -49,9 +57,13 @@ export class TerraceStage {
       if (!stage) return;
       if (to === "REVEAL") {
         if (!deps.reducedMotion()) deps.glance(stage.focus.getWorldPosition(new Vector3()));
-        deps.hud.showCaption(stage.config.captions.reveal);
+        this.showCaption(stage, stage.config.revealCaption);
       }
-      if (to === "RETURN") deps.hud.showCaption(null);
+      if (to === "CHAIN") {
+        stage.director.restart();
+        stage.scene.apply(stage.director.state);
+      }
+      if (to === "RETURN") this.showCaption(stage, null);
     });
   }
 
@@ -63,19 +75,33 @@ export class TerraceStage {
       if (!object) throw new Error(`${name} absent`);
       return object;
     };
-    this.stage?.roof.reset();
-    // Modules are cached by the asset manager: reuse the reveal (and its material copies).
-    let roof = this.reveals.get(root);
-    if (!roof) {
-      roof = new RoofReveal(find(n.roof), this.deps.reducedMotion);
-      this.reveals.set(root, roof);
+    this.detach();
+    let built = this.built.get(root);
+    if (!built) {
+      built = {
+        roof: new RoofReveal(find(n.roof), this.deps.reducedMotion),
+        scene: new ChainTimeline(root, config.timeline),
+      };
+      this.built.set(root, built);
     }
-    roof.reset();
-    this.stage = { config, root, view: find(n.view), focus: find(n.focus), roof, welcomed: false };
+    built.roof.reset();
+    built.scene.apply(null);
+    this.stage = {
+      config,
+      root,
+      view: find(n.view),
+      focus: find(n.focus),
+      ...built,
+      director: new TimelineDirector(config.timeline),
+      caption: null,
+      welcomed: false,
+    };
   }
 
   detach(): void {
-    this.stage?.roof.reset();
+    if (!this.stage) return;
+    this.stage.roof.reset();
+    this.stage.scene.apply(null);
     this.stage = null;
     this.deps.hud.setHint(null);
     this.deps.hud.showCaption(null);
@@ -91,7 +117,7 @@ export class TerraceStage {
       const onTerrace = this.isOnTerrace(stage);
       if (onTerrace && !stage.welcomed) {
         stage.welcomed = true;
-        hud.showCaption(stage.config.captions.terrace);
+        this.showCaption(stage, stage.config.terraceCaption);
       }
       if (this.atViewpoint(stage)) {
         hud.setHint(null);
@@ -103,6 +129,18 @@ export class TerraceStage {
     }
     hud.setHint(null);
     if (state === "REVEAL" && stage.roof.update(dt)) game.send({ type: "ROOF_REVEALED" });
+    if (state === "CHAIN") {
+      const timeline = stage.director.update(dt);
+      stage.scene.apply(timeline);
+      this.showCaption(stage, stage.config.timeline[timeline.active]?.captionId ?? null);
+      if (timeline.done) game.send({ type: "TIMELINE_DONE" });
+    }
+  }
+
+  private showCaption(stage: Stage, id: string | null): void {
+    if (stage.caption === id) return;
+    stage.caption = id;
+    this.deps.hud.showCaption(id ? captionById(stage.config, id) : null);
   }
 
   private playerLocal(stage: Stage): Vector3 {

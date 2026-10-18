@@ -32,8 +32,10 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 
 ## Contrats de données
 
-- `TimelineStep.event` : `"collect" | "load" | "drive" | "process" | "deliver"`, avec `targets?: string[]` et `pathId?: string`.
-- `ChainConfig.exitAnchor` est renommé `returnAnchor`. Champs ajoutés : `systemType`, `recap` (3 cartels max), `validation`.
+- `TimelineStep.event` : `"collect" | "load" | "drive" | "process" | "deliver"`. Au lieu d'un tableau `targets` positionnel, des champs nommés : `from` / `to` (groupes dont les enfants apparaissent ou disparaissent un à un) pour collect, load, process, deliver ; `vehicle` + `pathId` pour drive.
+- La scène d'une chaîne est une fonction pure du temps écoulé : état initial, puis chaque étape commencée dans l'ordre. Pause, replay et reprise sont donc déterministes.
+- `ChainConfig` : `captions`, `terraceCaption`, `revealCaption`, `timeline`, `recap` (3 cartels max), `sources`, `systemType`. `exitAnchor` est abandonné (le retour s'appuie sur la façade du rayon).
+- Fin de chaîne : le panneau récapitulatif libère le pointeur et propose « Revoir la chaîne », « Revenir au magasin » et « Rester sur la terrasse » ; les sources sont dans un `<details>` accessible au clavier.
 - Schéma des cartels : voir CONTENT_SCHEMA.md.
 
 ## Filière œufs (prototype)

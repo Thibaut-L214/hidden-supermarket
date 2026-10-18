@@ -169,6 +169,19 @@ describe("TerraceTransition", () => {
     expect(alerts).toEqual(["La filière n'a pas pu être chargée. Retour au magasin."]);
   });
 
+  it("recovers when a loaded module cannot be staged", async () => {
+    const { game, transition, alerts, scene } = setup(async () => new Group());
+    transition.onModuleChange = (_, root) => {
+      if (root) throw new Error("ANCHOR absent");
+    };
+    game.send({ type: "SCAN_CONFIRMED", chainId: "eggs" });
+    await flush();
+    await flush();
+    expect(game.snapshot).toEqual({ state: "STORE", activeChain: null });
+    expect(alerts).toEqual(["La filière n'a pas pu être préparée. Retour au magasin."]);
+    expect(scene.children.filter((c) => c.type === "Group")).toHaveLength(1);
+  });
+
   it("brings the player back in front of the shelf on a manual return", async () => {
     const { game, transition, walkTo, run, where } = setup(async () => new Group());
     game.send({ type: "SCAN_CONFIRMED", chainId: "eggs" });

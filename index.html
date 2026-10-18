@@ -88,6 +88,26 @@
           </label>
         </fieldset>
       </section>
+
+      <section
+        id="recap"
+        class="panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recap-title"
+        hidden
+      >
+        <h2 id="recap-title"></h2>
+        <p>À retenir :</p>
+        <ol class="recap-cards"></ol>
+        <details class="recap-sources">
+          <summary>Voir les sources</summary>
+          <div class="recap-sources-body"></div>
+        </details>
+        <button id="recap-replay" type="button">Revoir la chaîne</button>
+        <button id="recap-return" class="secondary" type="button">Revenir au magasin</button>
+        <button id="recap-stay" class="secondary" type="button">Rester sur la terrasse</button>
+      </section>
     </main>
     <script type="module" src="/src/app/bootstrap.ts"></script>
   </body>

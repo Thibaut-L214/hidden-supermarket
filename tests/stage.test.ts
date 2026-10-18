@@ -45,7 +45,8 @@ function setup(reducedMotion = false) {
     glance: (target) => glances.push(target),
   });
   const { root, roof } = module();
-  stage.attach(eggs, root);
+  // Timeline objects are covered by tests/timeline.test.ts; this module has none.
+  stage.attach({ ...eggs, timeline: [] }, root);
   for (const type of ["START", "MODULE_READY", "DOORS_OPEN"] as const) {
     if (type === "MODULE_READY") game.send({ type: "SCAN_CONFIRMED", chainId: "eggs" });
     game.send({ type });
@@ -72,7 +73,8 @@ describe("TerraceStage", () => {
     expect(glances).toHaveLength(1);
 
     for (let t = 0; t < ROOF_SECONDS + 0.2; t += 0.1) stage.update(0.1);
-    expect(game.snapshot.state).toBe("CHAIN");
+    // An empty timeline finishes at once: the chain reaches the recap.
+    expect(game.snapshot.state).toBe("RECAP");
     expect(roof.visible).toBe(false);
   });
 

@@ -177,7 +177,14 @@ export class TerraceTransition {
     root.updateMatrixWorld(true);
     collisions.addFrom(root);
     this.module = { chain, root };
-    this.onModuleChange(chain, root);
+    try {
+      this.onModuleChange(chain, root);
+    } catch (error) {
+      // A module that loads but cannot be staged must not block the session either.
+      console.error(error);
+      game.send({ type: "FAILURE", reason: "La filière n'a pas pu être préparée." });
+      return;
+    }
     game.send({ type: "MODULE_READY" });
   }
 
