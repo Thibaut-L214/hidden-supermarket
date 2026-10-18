@@ -115,6 +115,11 @@ export class CollisionWorld {
     }
   }
 
+  /** Collider objects, e.g. as occluders for aiming rays. */
+  get objects(): Object3D[] {
+    return this.colliders.map(({ object }) => object);
+  }
+
   get rects(): Rect[] {
     return this.colliders.flatMap(({ rect }) => (rect ? [rect] : []));
   }

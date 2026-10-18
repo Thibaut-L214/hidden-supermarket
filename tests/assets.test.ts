@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   STORE_CONTRACT,
+  TERRACE_EGGS_CONTRACT,
   checkContract,
   type AssetContract,
   type ContractNode,
@@ -47,7 +48,7 @@ describe("checkContract", () => {
   });
 });
 
-describe.each([STORE_CONTRACT])("$url", (contract) => {
+describe.each([STORE_CONTRACT, TERRACE_EGGS_CONTRACT])("$url", (contract) => {
   let doc: Document;
 
   beforeAll(async () => {

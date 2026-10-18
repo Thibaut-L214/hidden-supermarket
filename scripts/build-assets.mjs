@@ -14,10 +14,15 @@ const ASSETS = [
     builder: "blender/scripts/build_store.py",
     glb: "public/assets/store/store.glb",
   },
+  {
+    blend: "blender/terrace_eggs.blend",
+    builder: "blender/scripts/build_terrace_eggs.py",
+    glb: "public/assets/eggs/terrace_eggs.glb",
+  },
 ];
 
 function blender(args) {
-  execFileSync(BLENDER, ["-b", "--factory-startup", ...args], {
+  execFileSync(BLENDER, ["-b", "--factory-startup", "--python-exit-code", "1", ...args], {
     stdio: ["ignore", "inherit", "inherit"],
   });
 }

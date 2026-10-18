@@ -27,6 +27,7 @@ export type GameEvent =
   | { type: "TIMELINE_DONE" }
   | { type: "REPLAY" }
   | { type: "RETURN_REQUESTED" }
+  | { type: "TERRACE_ENTERED" }
   | { type: "DOORS_CLOSED" }
   | { type: "EXIT_REQUESTED" }
   | { type: "PARVIS_REACHED" }
@@ -83,6 +84,9 @@ export function transition(current: GameSnapshot, event: GameEvent): GameSnapsho
       return state === "RECAP" ? to("CHAIN") : null;
     case "RETURN_REQUESTED":
       return IN_CHAIN_MODULE.includes(state) ? to("RETURN") : null;
+    case "TERRACE_ENTERED":
+      // Changing one's mind while the doors close: back on the terrace, doors reopen.
+      return state === "RETURN" ? to("TERRACE") : null;
     case "DOORS_CLOSED":
       return state === "RETURN" ? inStore("STORE") : null;
     case "EXIT_REQUESTED":

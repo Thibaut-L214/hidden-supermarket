@@ -18,6 +18,7 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 | RECAP | CHAIN | « Revoir » |
 | TERRACE, REVEAL, CHAIN, RECAP | RETURN | joueur refranchit le seuil |
 | RETURN | STORE | portes refermées après le passage |
+| RETURN | TERRACE | joueur repasse côté terrasse avant la fermeture (portes rouvertes) |
 | STORE | EXIT | porte d'entrée principale |
 | EXIT | END_MENU | arrivée sur le parvis |
 | END_MENU | STORE | « Revenir dans le magasin » |
@@ -53,6 +54,9 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 | Données de maillage | `ME_*` | évite toute collision avec les noms de nœuds |
 
 - Les nœuds `COL_*`, `SCAN_*`, `TRIGGER_*` sont exportés puis masqués par `AssetManager`.
+- Le module de terrasse est un GLB distinct, posé sur `ANCHOR_<FILIÈRE>_TERRACE` (face arrière du mur, niveau du sol) et retiré de la scène au retour en `STORE`.
+- `TRIGGER_<FILIÈRE>_ENTRY` couvre le seuil, de la façade du rayon jusqu'au-delà du mur ; hors de ce volume, le côté de son plan médian indique magasin ou terrasse.
+- Les portes ne bougent jamais tant que le joueur est dans leur zone de débattement ; un message lui demande de s'écarter. Le menu pause propose « Revenir au magasin » dès qu'une terrasse est ouverte.
 - Les portes s'ouvrent vers le magasin : charnières sur les coins avant extérieurs du rayon, rotation ±90° autour de l'axe vertical, passage libre de 1,8 m. L'animation est pilotée par le code, jamais par un clip Blender.
 - Axes : Blender (x, y, z) → glTF (x, z, -y). Le nord du magasin (Blender +Y) est le -Z glTF.
 - Le contrat de nommage vit dans `src/core/assetContract.ts` ; `tests/assets.test.ts` le vérifie sur chaque GLB exporté.

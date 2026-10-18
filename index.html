@@ -10,6 +10,7 @@
     <main id="app">
       <canvas id="scene" aria-label="Vue 3D du magasin"></canvas>
       <div id="reticle" aria-hidden="true" hidden></div>
+      <p id="hud-prompt" aria-live="polite" hidden></p>
       <p id="status" role="status" aria-live="polite">Chargement du magasin…</p>
 
       <section
@@ -65,6 +66,7 @@
       >
         <h2 id="pause-title">Pause</h2>
         <button id="pause-resume" type="button">Reprendre</button>
+        <button id="pause-return" class="secondary" type="button" hidden>Revenir au magasin</button>
         <fieldset>
           <legend>Confort</legend>
           <label>

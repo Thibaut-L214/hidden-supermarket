@@ -14,13 +14,11 @@ import {
   Vector3,
 } from "three";
 import type { AssetManager } from "../core/AssetManager";
-import { STORE_CONTRACT } from "../core/assetContract";
+import { STORE_CONTRACT, shelfNodes } from "../core/assetContract";
+import { CHAINS } from "../data/chains";
 
 /** Eye height of the player above the floor, in metres. */
 export const EYE_HEIGHT = 1.6;
-
-// Sign labels are drawn at runtime so that wording stays out of the GLB.
-const SIGN_LABELS: Record<string, string> = { SIGN_EGGS: "Œufs" };
 
 export class StoreWorld {
   readonly root: Object3D;
@@ -32,9 +30,10 @@ export class StoreWorld {
   static async load(assets: AssetManager, scene: Scene): Promise<StoreWorld> {
     const root = await assets.load(STORE_CONTRACT);
     scene.add(root, ...createStoreLights());
-    for (const [name, label] of Object.entries(SIGN_LABELS)) {
-      const sign = root.getObjectByName(name);
-      if (sign) sign.add(createSignLabel(sign, label));
+    // Sign labels are drawn at runtime so that wording stays out of the GLB.
+    for (const chain of Object.values(CHAINS)) {
+      const sign = root.getObjectByName(shelfNodes(chain.id).sign);
+      if (sign) sign.add(createSignLabel(sign, chain.label));
     }
     return new StoreWorld(root);
   }

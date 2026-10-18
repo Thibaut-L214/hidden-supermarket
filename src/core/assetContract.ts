@@ -1,5 +1,6 @@
 // Naming contract between Blender exports and the runtime (docs/TECH.md §03, docs/DECISIONS.md).
 // Used at runtime to validate a loaded GLB and by tests/assets.test.ts on the exported files.
+import type { ChainId } from "./chain";
 
 /** Helper volumes: exported in the GLB, never rendered. */
 export const HIDDEN_PREFIXES = ["COL_", "SCAN_", "TRIGGER_"] as const;
@@ -15,30 +16,61 @@ export interface AssetContract {
   prefixes: readonly { prefix: string; min: number }[];
 }
 
+/** Node names of a scannable shelf in the store GLB. */
+export function shelfNodes(chain: ChainId) {
+  const id = chain.toUpperCase();
+  return {
+    root: `SHELF_${id}_ROOT`,
+    hingeL: `HINGE_${id}_L`,
+    hingeR: `HINGE_${id}_R`,
+    doorL: `DOOR_${id}_L`,
+    doorR: `DOOR_${id}_R`,
+    scan: `SCAN_${id}`,
+    entry: `TRIGGER_${id}_ENTRY`,
+    terraceAnchor: `ANCHOR_${id}_TERRACE`,
+    sign: `SIGN_${id}`,
+  } as const;
+}
+
+/** Node names of a chain's terrace module GLB. */
+export function terraceNodes(chain: ChainId) {
+  const id = chain.toUpperCase();
+  return { root: `TERRACE_${id}_ROOT`, view: `ANCHOR_${id}_VIEW`, roof: `ROOF_${id}` } as const;
+}
+
+function shelfContract(chain: ChainId): Pick<AssetContract, "required" | "parents"> {
+  const n = shelfNodes(chain);
+  return {
+    required: Object.values(n),
+    parents: {
+      [n.hingeL]: n.root,
+      [n.hingeR]: n.root,
+      [n.doorL]: n.hingeL,
+      [n.doorR]: n.hingeR,
+      [n.scan]: n.root,
+      [n.entry]: n.root,
+      [n.terraceAnchor]: n.root,
+    },
+  };
+}
+
+const eggsShelf = shelfContract("eggs");
+
 export const STORE_CONTRACT: AssetContract = {
   url: "/assets/store/store.glb",
-  required: [
-    "STORE_ROOT",
-    "SPAWN_PLAYER",
-    "TRIGGER_EXIT",
-    "SHELF_EGGS_ROOT",
-    "HINGE_EGGS_L",
-    "HINGE_EGGS_R",
-    "DOOR_EGGS_L",
-    "DOOR_EGGS_R",
-    "SCAN_EGGS",
-    "TRIGGER_EGGS_ENTRY",
-    "SIGN_EGGS",
-  ],
-  parents: {
-    HINGE_EGGS_L: "SHELF_EGGS_ROOT",
-    HINGE_EGGS_R: "SHELF_EGGS_ROOT",
-    DOOR_EGGS_L: "HINGE_EGGS_L",
-    DOOR_EGGS_R: "HINGE_EGGS_R",
-    SCAN_EGGS: "SHELF_EGGS_ROOT",
-    TRIGGER_EGGS_ENTRY: "SHELF_EGGS_ROOT",
-  },
+  required: ["STORE_ROOT", "SPAWN_PLAYER", "TRIGGER_EXIT", ...eggsShelf.required],
+  parents: eggsShelf.parents,
   prefixes: [{ prefix: "COL_", min: 1 }],
+};
+
+const eggsTerrace = terraceNodes("eggs");
+
+export const TERRACE_EGGS_CONTRACT: AssetContract = {
+  url: "/assets/eggs/terrace_eggs.glb",
+  required: [...Object.values(eggsTerrace), "BUILDING_EGGS_FARM", "PACKING_EGGS_CENTER"],
+  parents: { [eggsTerrace.view]: eggsTerrace.root, [eggsTerrace.roof]: eggsTerrace.root },
+  // Guardrails on three sides of the terrace.
+  prefixes: [{ prefix: "COL_RAIL_", min: 3 }],
 };
 
 export interface ContractNode {

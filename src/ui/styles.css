@@ -180,3 +180,41 @@ kbd {
   font-size: 0.85rem;
   color: #5a5f58;
 }
+
+#reticle[data-targeted] {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  background: conic-gradient(#3f5a3c calc(var(--progress, 0) * 1turn), rgb(247 244 236 / 70%) 0);
+  box-shadow: 0 0 0 1.5px var(--ink);
+  mask: radial-gradient(circle, transparent 7px, #000 8px);
+}
+
+#hud-prompt {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 2.2rem);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.35rem;
+  background: rgb(247 244 236 / 92%);
+  max-width: min(30rem, calc(100% - 2rem));
+  text-align: center;
+  pointer-events: none;
+}
+
+#hud-prompt:empty,
+#hud-prompt[hidden] {
+  display: none;
+}
+
+.panel button.secondary {
+  background: transparent;
+  color: #3f5a3c;
+  box-shadow: inset 0 0 0 2px #3f5a3c;
+}
+
+.panel button[hidden] {
+  display: none;
+}

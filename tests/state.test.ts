@@ -47,6 +47,12 @@ describe("transition", () => {
     expect(back).toEqual({ state: "STORE", activeChain: null });
   });
 
+  it("goes back to the terrace when the player turns around during the return", () => {
+    const back = run([...toRecap, { type: "RETURN_REQUESTED" }, { type: "TERRACE_ENTERED" }]);
+    expect(back).toEqual({ state: "TERRACE", activeChain: "eggs" });
+    expect(transition(run(toTerrace), { type: "TERRACE_ENTERED" })).toBeNull();
+  });
+
   it("refuses a second scan while a shelf is opening", () => {
     const opening = run(toTerrace.slice(0, 3));
     expect(opening.state).toBe("OPENING");

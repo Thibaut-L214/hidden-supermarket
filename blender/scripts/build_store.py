@@ -56,17 +56,18 @@ def shell(root) -> None:
     box("STORE_FLOOR", (-HALF_X, -HALF_Y, -0.1), (HALF_X, HALF_Y, 0.0), M["floor"], root)
     box("STORE_CEILING", (-HALF_X, -HALF_Y, HEIGHT), (HALF_X, HALF_Y, HEIGHT + 0.1), M["ceiling"], root)
 
+    # Walls start below floor level so no slit shows where they meet the plinth outside.
     walls = {
         # North wall, split around the eggs opening.
-        "N_W": ((-HALF_X, HALF_Y, 0), (-OPENING_HALF_W, HALF_Y + WALL, HEIGHT)),
-        "N_E": ((OPENING_HALF_W, HALF_Y, 0), (HALF_X, HALF_Y + WALL, HEIGHT)),
+        "N_W": ((-HALF_X, HALF_Y, -0.1), (-OPENING_HALF_W, HALF_Y + WALL, HEIGHT)),
+        "N_E": ((OPENING_HALF_W, HALF_Y, -0.1), (HALF_X, HALF_Y + WALL, HEIGHT)),
         "N_LINTEL": ((-OPENING_HALF_W, HALF_Y, OPENING_H), (OPENING_HALF_W, HALF_Y + WALL, HEIGHT)),
         # South wall, split around the entrance.
-        "S_W": ((-HALF_X, -HALF_Y - WALL, 0), (-ENTRANCE_HALF_W, -HALF_Y, HEIGHT)),
-        "S_E": ((ENTRANCE_HALF_W, -HALF_Y - WALL, 0), (HALF_X, -HALF_Y, HEIGHT)),
+        "S_W": ((-HALF_X, -HALF_Y - WALL, -0.1), (-ENTRANCE_HALF_W, -HALF_Y, HEIGHT)),
+        "S_E": ((ENTRANCE_HALF_W, -HALF_Y - WALL, -0.1), (HALF_X, -HALF_Y, HEIGHT)),
         "S_LINTEL": ((-ENTRANCE_HALF_W, -HALF_Y - WALL, 2.6), (ENTRANCE_HALF_W, -HALF_Y, HEIGHT)),
-        "E": ((HALF_X, -HALF_Y - WALL, 0), (HALF_X + WALL, HALF_Y + WALL, HEIGHT)),
-        "W": ((-HALF_X - WALL, -HALF_Y - WALL, 0), (-HALF_X, HALF_Y + WALL, HEIGHT)),
+        "E": ((HALF_X, -HALF_Y - WALL, -0.1), (HALF_X + WALL, HALF_Y + WALL, HEIGHT)),
+        "W": ((-HALF_X - WALL, -HALF_Y - WALL, -0.1), (-HALF_X, HALF_Y + WALL, HEIGHT)),
     }
     for key, (lo, hi) in walls.items():
         box(f"STORE_WALL_{key}", lo, hi, M["wall"], root)
@@ -161,9 +162,15 @@ def eggs_shelf(root) -> None:
         door_half(hinge, side)
 
     helper_volume(box("SCAN_EGGS", (-OPENING_HALF_W, front_y, 0.0), (OPENING_HALF_W, HALF_Y, OPENING_H), None, shelf))
+    # Threshold zone: from the shelf front to just past the wall. Outside it, the side of its
+    # centre plane tells whether the player stands in the store or on the terrace.
     helper_volume(
-        box("TRIGGER_EGGS_ENTRY", (-OPENING_HALF_W, HALF_Y, 0.0), (OPENING_HALF_W, HALF_Y + WALL + 0.3, OPENING_H), None, shelf)
+        box("TRIGGER_EGGS_ENTRY", (-OPENING_HALF_W, front_y, 0.0), (OPENING_HALF_W, HALF_Y + WALL + 0.3, OPENING_H), None, shelf)
     )
+    # Floor across the wall thickness, so the store floor meets the terrace slab.
+    box("STORE_THRESHOLD_EGGS", (-OPENING_HALF_W, HALF_Y, -0.1), (OPENING_HALF_W, HALF_Y + WALL, 0.0), M["floor"], shelf)
+    # The terrace module's root is placed on this anchor (back face of the wall, floor level).
+    empty("ANCHOR_EGGS_TERRACE", (0.0, SHELF_DEPTH + WALL, 0.0), shelf)
     # Sign panel: the label itself is drawn at runtime (docs/DECISIONS.md, signage).
     box("SIGN_EGGS", (-0.9, HALF_Y - 0.03, 2.45), (0.9, HALF_Y, 2.95), M["sign"], shelf)
 
