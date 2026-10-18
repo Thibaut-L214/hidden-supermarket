@@ -1,9 +1,7 @@
 import {
   Box3,
   CanvasTexture,
-  DirectionalLight,
   Euler,
-  HemisphereLight,
   Mesh,
   MeshStandardMaterial,
   type Object3D,
@@ -29,7 +27,7 @@ export class StoreWorld {
 
   static async load(assets: AssetManager, scene: Scene): Promise<StoreWorld> {
     const root = await assets.load(STORE_CONTRACT);
-    scene.add(root, ...createStoreLights());
+    scene.add(root);
     // Sign labels are drawn at runtime so that wording stays out of the GLB.
     for (const chain of Object.values(CHAINS)) {
       const sign = root.getObjectByName(shelfNodes(chain.id).sign);
@@ -46,14 +44,6 @@ export class StoreWorld {
     const yaw = new Euler().setFromQuaternion(spawn.getWorldQuaternion(new Quaternion()), "YXZ").y;
     return { position: { x: position.x, z: position.z }, yaw };
   }
-}
-
-function createStoreLights(): Object3D[] {
-  // Broad, even store lighting (docs/DA.md §02A); ceiling panels are emissive only.
-  const hemisphere = new HemisphereLight("#fff8ec", "#b9ab90", 1.3);
-  const key = new DirectionalLight("#fffaf0", 1.4);
-  key.position.set(3, 10, 4);
-  return [hemisphere, key];
 }
 
 /** Flat label laid just in front of the sign panel's front face (+Z in glTF space). */

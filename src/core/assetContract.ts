@@ -35,7 +35,13 @@ export function shelfNodes(chain: ChainId) {
 /** Node names of a chain's terrace module GLB. */
 export function terraceNodes(chain: ChainId) {
   const id = chain.toUpperCase();
-  return { root: `TERRACE_${id}_ROOT`, view: `ANCHOR_${id}_VIEW`, roof: `ROOF_${id}` } as const;
+  return {
+    root: `TERRACE_${id}_ROOT`,
+    view: `ANCHOR_${id}_VIEW`,
+    focus: `ANCHOR_${id}_FOCUS`,
+    roof: `ROOF_${id}`,
+    interior: `INTERIOR_${id}`,
+  } as const;
 }
 
 function shelfContract(chain: ChainId): Pick<AssetContract, "required" | "parents"> {
@@ -68,7 +74,11 @@ const eggsTerrace = terraceNodes("eggs");
 export const TERRACE_EGGS_CONTRACT: AssetContract = {
   url: "/assets/eggs/terrace_eggs.glb",
   required: [...Object.values(eggsTerrace), "BUILDING_EGGS_FARM", "PACKING_EGGS_CENTER"],
-  parents: { [eggsTerrace.view]: eggsTerrace.root, [eggsTerrace.roof]: eggsTerrace.root },
+  parents: {
+    [eggsTerrace.view]: eggsTerrace.root,
+    [eggsTerrace.focus]: eggsTerrace.root,
+    [eggsTerrace.roof]: eggsTerrace.root,
+  },
   // Guardrails on three sides of the terrace.
   prefixes: [{ prefix: "COL_RAIL_", min: 3 }],
 };

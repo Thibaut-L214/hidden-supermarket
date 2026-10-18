@@ -61,6 +61,14 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - Axes : Blender (x, y, z) → glTF (x, z, -y). Le nord du magasin (Blender +Y) est le -Z glTF.
 - Le contrat de nommage vit dans `src/core/assetContract.ts` ; `tests/assets.test.ts` le vérifie sur chaque GLB exporté.
 
+## Terrasse et révélation
+
+- Terrasse à 24 m au-dessus du sol, hangar proche et bas : depuis le garde-corps, le mur avant masque peu l'intérieur une fois le toit retiré.
+- Intérieur du hangar volontairement neutre (plateformes, bande de collecte) tant que le système d'élevage n'est pas choisi ; un cartel « Contenu provisoire » le signale.
+- Toit : levée de 4 m et fondu en 3 s ; fondu seul en mode « Réduire les mouvements ». Le toit ne se referme qu'au déchargement du module.
+- Cadrage facultatif vers le hangar à l'entrée en `REVEAL`, interrompu par tout mouvement de souris, désactivé en mode réduit.
+- Lumière : mélange amorti (≈ 1 s) entre éclairage magasin et extérieur (soleil rasant, ciel brumeux, ombres à l'échelle des bâtiments), piloté par la position du joueur et l'ouverture des portes.
+
 ## Entrées
 
 - Touches lues via `KeyboardEvent.code` : ZQSD (AZERTY) et WASD (QWERTY) correspondent aux mêmes codes physiques.

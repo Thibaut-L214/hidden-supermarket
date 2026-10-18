@@ -5,6 +5,7 @@ import { EventBus } from "../core/EventBus";
 import { GameClock } from "../core/GameClock";
 import { GameState, canWalk, type GameEvents } from "../core/GameState";
 import { CHAINS } from "../data/chains";
+import { TerraceStage } from "../features/chains/TerraceStage";
 import { TerraceTransition } from "../features/portal/TerraceTransition";
 import { findScanTargets } from "../features/scanner/ScanTarget";
 import { Scanner } from "../features/scanner/Scanner";
@@ -12,6 +13,7 @@ import { HUD } from "../ui/HUD";
 import { IntroScreen } from "../ui/IntroScreen";
 import { PauseMenu } from "../ui/PauseMenu";
 import { beep } from "../ui/sound";
+import { Atmosphere } from "../world/Atmosphere";
 import { CollisionWorld } from "../world/CollisionWorld";
 import { FPSController } from "../world/FPSController";
 import { EYE_HEIGHT, StoreWorld } from "../world/StoreWorld";
@@ -61,10 +63,11 @@ const clock = new GameClock();
 const assets = new AssetManager();
 const collisions = new CollisionWorld();
 const fps = new FPSController(camera, canvas, collisions, settings, EYE_HEIGHT);
-const hud = new HUD(reticle, element("#hud-prompt"), status);
+const hud = new HUD(reticle, element("#hud-prompt"), status, element("#caption"));
+const atmosphere = new Atmosphere(scene, renderer);
 
 /** Systems that need the loaded store. */
-let world: { scanner: Scanner; transition: TerraceTransition } | null = null;
+let world: { scanner: Scanner; transition: TerraceTransition; stage: TerraceStage } | null = null;
 
 // Pause is a flag orthogonal to the game state (docs/DECISIONS.md).
 const pauseMenu = new PauseMenu(element("#pause"), settings, resume, () => {
@@ -120,26 +123,46 @@ function createWorld(store: StoreWorld) {
     collisions,
     storeRoot: store.root,
     chains: CHAINS,
-    hud,
+    hud: { setHint: (text) => hud.setHint("portal", text), alert: (text) => hud.alert(text) },
     player: {
       radius: collisions.radius,
       position: () => ({ x: camera.position.x, z: camera.position.z }),
       teleport: (position, yaw) => fps.setPose(position, yaw),
     },
   });
-  return { scanner, transition };
+  const stage = new TerraceStage({
+    game,
+    bus,
+    player: { position: () => ({ x: camera.position.x, z: camera.position.z }) },
+    hud: {
+      setHint: (text) => hud.setHint("stage", text),
+      showCaption: (caption) => hud.showCaption(caption),
+    },
+    reducedMotion: () => settings.reducedMotion,
+    glance: (target) => fps.glanceAt(target),
+  });
+  transition.onModuleChange = (chain, root) => {
+    const config = CHAINS[chain];
+    if (root && config) {
+      atmosphere.shade(root);
+      stage.attach(config, root);
+    } else stage.detach();
+  };
+  return { scanner, transition, stage };
 }
 
 function frame(now: number): void {
   const dt = clock.tick(now);
   fps.update(dt);
   if (world) {
-    const { scanner, transition } = world;
+    const { scanner, transition, stage } = world;
     scanner.setEnabled(game.snapshot.state === "STORE" && !clock.paused);
     scanner.update(dt);
     const target = scanner.target?.chainId;
     hud.setAim(target ? (CHAINS[target]?.label ?? target) : null, scanner.progress);
     transition.update(dt);
+    stage.update(dt);
+    atmosphere.update(dt, transition.outdoorTarget);
   }
   renderer.render(scene, camera);
 }
@@ -178,6 +201,20 @@ if (import.meta.env.DEV) {
         return world;
       },
       /** Advances the game by `seconds` of synthetic frames (pages in a background tab get no rAF). */
+      /** Freezes the current frame in an overlay image (background tabs do not composite the canvas); false removes it. */
+      async capture(show = true) {
+        document.querySelector("#dev-capture")?.remove();
+        if (!show) return;
+        renderer.render(scene, camera);
+        const img = Object.assign(document.createElement("img"), {
+          id: "dev-capture",
+          src: canvas.toDataURL("image/jpeg", 0.85),
+        });
+        img.style.cssText =
+          "position:fixed;inset:0;width:100%;height:100%;z-index:9;pointer-events:none";
+        document.body.append(img);
+        await img.decode();
+      },
       step(seconds: number, fps = 60) {
         virtualNow = Math.max(virtualNow, performance.now());
         for (let i = 0; i < Math.round(seconds * fps); i++) frame((virtualNow += 1000 / fps));

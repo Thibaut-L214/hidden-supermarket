@@ -25,7 +25,7 @@ body,
 #status {
   position: absolute;
   left: 50%;
-  bottom: 2rem;
+  top: 1.25rem;
   transform: translateX(-50%);
   margin: 0;
   padding: 0.6rem 1rem;
@@ -217,4 +217,42 @@ kbd {
 
 .panel button[hidden] {
   display: none;
+}
+
+#caption {
+  position: absolute;
+  left: 1.25rem;
+  bottom: 1.25rem;
+  box-sizing: border-box;
+  width: min(24rem, calc(100% - 2.5rem));
+  padding: 0.85rem 1rem;
+  border-left: 4px solid #6f8a68;
+  border-radius: 0.4rem;
+  background: rgb(247 244 236 / 94%);
+  line-height: 1.4;
+}
+
+#caption[hidden] {
+  display: none;
+}
+
+#caption.dimmed {
+  opacity: 0.35;
+}
+
+#caption .caption-badge {
+  margin: 0 0 0.3rem;
+  font-size: 0.8rem;
+  color: #4d5a4a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#caption .caption-title {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+}
+
+#caption .caption-text {
+  margin: 0;
 }

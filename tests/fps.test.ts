@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { applyLook, walkDelta, type Direction } from "../src/world/FPSController";
+import {
+  applyLook,
+  blendView,
+  viewToward,
+  walkDelta,
+  type Direction,
+} from "../src/world/FPSController";
 
 const held = (...d: Direction[]) => new Set(d);
 
@@ -43,5 +49,26 @@ describe("applyLook", () => {
   it("clamps the pitch short of the vertical", () => {
     const view = applyLook({ yaw: 0, pitch: 0 }, 0, -100000, 0.002);
     expect(view.pitch).toBeCloseTo((85 * Math.PI) / 180);
+  });
+});
+
+describe("viewToward", () => {
+  it("looks straight ahead along -Z at yaw 0", () => {
+    const view = viewToward({ x: 0, y: 1.6, z: 0 }, { x: 0, y: 1.6, z: -10 });
+    expect(view.yaw).toBeCloseTo(0);
+    expect(view.pitch).toBeCloseTo(0);
+  });
+
+  it("turns left towards -X and looks down at a lower point", () => {
+    const view = viewToward({ x: 0, y: 10, z: 0 }, { x: -10, y: 0, z: 0 });
+    expect(view.yaw).toBeCloseTo(Math.PI / 2);
+    expect(view.pitch).toBeCloseTo(-Math.PI / 4);
+  });
+});
+
+describe("blendView", () => {
+  it("takes the shortest turn across ±π", () => {
+    const mid = blendView({ yaw: 3, pitch: 0 }, { yaw: -3, pitch: 0 }, 0.5);
+    expect(Math.abs(mid.yaw)).toBeGreaterThan(3);
   });
 });

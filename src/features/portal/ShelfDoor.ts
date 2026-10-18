@@ -3,6 +3,7 @@
 // any number of open/close cycles ends on exactly the same pose (docs/TECH.md §05).
 import { Box3, type Object3D, Quaternion, Vector3 } from "three";
 import { shelfNodes } from "../../core/assetContract";
+import { ease } from "../../core/easing";
 import type { ChainId } from "../../core/chain";
 import type { Vec2 } from "../../world/CollisionWorld";
 
@@ -37,11 +38,6 @@ export function inSwingZone(p: Vec2, g: SwingGeometry, radius: number): boolean 
     const along = dx * g.storeNormal.x + dz * g.storeNormal.z;
     return Math.hypot(dx, dz) < reach && along > -behind;
   });
-}
-
-/** Smoothstep easing: gentle start and stop, no overshoot. */
-export function ease(t: number): number {
-  return t * t * (3 - 2 * t);
 }
 
 interface Leaf {

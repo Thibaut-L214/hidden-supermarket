@@ -77,6 +77,8 @@ export interface TerraceTransitionDeps {
 export class TerraceTransition {
   private readonly portals = new Map<ChainId, Portal>();
   private module: { chain: ChainId; root: Object3D } | null = null;
+  /** Notified when a terrace module enters (root) or leaves (null) the scene. */
+  onModuleChange: (chain: ChainId, root: Object3D | null) => void = () => {};
 
   constructor(private readonly deps: TerraceTransitionDeps) {
     for (const chain of Object.keys(deps.chains) as ChainId[]) {
@@ -95,6 +97,16 @@ export class TerraceTransition {
   get canReturn(): boolean {
     const { state } = this.deps.game.snapshot;
     return IN_MODULE.includes(state) || state === "RETURN";
+  }
+
+  /**
+   * How much of the outdoor light should reach the player, in [0, 1]: full on the terrace,
+   * a little through the opening doors (docs/GDD.md §06.1: exposure rises progressively).
+   */
+  get outdoorTarget(): number {
+    const portal = this.activePortal();
+    if (!portal || !this.module) return 0;
+    return portal.side === "terrace" ? 1 : 0.35 * portal.door.openness;
   }
 
   update(dt: number): void {
@@ -165,6 +177,7 @@ export class TerraceTransition {
     root.updateMatrixWorld(true);
     collisions.addFrom(root);
     this.module = { chain, root };
+    this.onModuleChange(chain, root);
     game.send({ type: "MODULE_READY" });
   }
 
@@ -177,6 +190,7 @@ export class TerraceTransition {
     if (!this.module) return;
     this.deps.scene.remove(this.module.root);
     this.deps.collisions.removeFrom(this.module.root);
+    this.onModuleChange(this.module.chain, null);
     this.module = null;
   }
 

@@ -20,9 +20,10 @@ from common import MeshBuilder, box, empty, helper_volume, material, reset_scene
 
 TERRACE_HALF_W, TERRACE_DEPTH = 6.0, 7.0
 RAIL_H = 1.05
-GROUND_Z = -14.0
+GROUND_Z = -24.0
 # The store sits on a plinth; in this frame the store spans Y ∈ [-18.9, 0].
 STORE_HALF_W, STORE_BACK_Y = 12.3, -18.9
+HOUSE_HALF_L, HOUSE_H = 35.0, 4.0
 
 M = {}
 
@@ -34,10 +35,13 @@ def materials() -> None:
     M["plinth"] = material("M_TERRACE_FACADE", "#B9BFC2", roughness=0.9)
     M["rail"] = material("M_RAIL_METAL", "#8F969A", roughness=0.4, metallic=0.6)
     M["rail_panel"] = material("M_RAIL_PANEL", "#C9D3D6", roughness=0.2, metallic=0.1)
-    M["ground"] = material("M_GROUND_FIELDS", "#B3AC95", roughness=1.0)
+    M["ground"] = material("M_GROUND_FIELDS", "#9FA083", roughness=1.0)
     M["road"] = material("M_ROAD", "#8A8A86", roughness=0.9)
-    M["farm"] = material("M_FARM_WALL", "#A39C8E", roughness=0.85)
-    M["farm_roof"] = material("M_FARM_ROOF", "#8E8A82", roughness=0.7, metallic=0.2)
+    M["farm"] = material("M_FARM_WALL", "#B9AF9D", roughness=0.85)
+    M["farm_floor"] = material("M_FARM_FLOOR", "#8C857A", roughness=0.95)
+    M["placeholder"] = material("M_PLACEHOLDER", "#D8D2C4", roughness=0.9)
+    M["placeholder_alt"] = material("M_PLACEHOLDER_ALT", "#A8B3B8", roughness=0.8)
+    M["farm_roof"] = material("M_FARM_ROOF", "#7F7A72", roughness=0.7, metallic=0.2)
     M["plant"] = material("M_PLANT_WALL", "#C7CCD1", roughness=0.6, metallic=0.2)
     M["plant_roof"] = material("M_PLANT_ROOF", "#7C838A", roughness=0.6, metallic=0.3)
 
@@ -55,6 +59,13 @@ def terrace(root) -> None:
         b = MeshBuilder()
         b.box((x0, y0, 0.1), (x1, y1, RAIL_H - 0.08), M["rail_panel"])
         b.box((x0 - 0.02, y0 - 0.02, RAIL_H - 0.06), (x1 + 0.02, y1 + 0.02, RAIL_H), M["rail"])
+        # Posts every 1.5 m make the guardrail readable at a glance.
+        along_x = (x1 - x0) > (y1 - y0)
+        length = (x1 - x0) if along_x else (y1 - y0)
+        for i in range(int(length / 1.5) + 1):
+            t = min(i * 1.5, length - 0.06)
+            px, py = (x0 + t, y0) if along_x else (x0, y0 + t)
+            b.box((px - 0.01, py - 0.01, 0.0), (px + 0.07, py + 0.07, RAIL_H - 0.06), M["rail"])
         b.build(f"TERRACE_RAIL_{key}", parent=root)
         helper_volume(box(f"COL_RAIL_{key}", (x0, y0, 0.0), (x1, y1, RAIL_H), None, root))
 
@@ -67,24 +78,61 @@ def landscape(root) -> None:
     roads = MeshBuilder()
     z0, z1 = GROUND_Z, GROUND_Z + 0.05
     for (x0, y0), (x1, y1) in (
-        ((40.0, 44.0), (78.0, 50.0)),  # farm → east
-        ((72.0, 44.0), (78.0, 100.0)),  # east → packing centre
-        ((18.0, 108.0), (72.0, 114.0)),  # packing centre → west
+        ((HOUSE_HALF_L, 32.0), (78.0, 38.0)),  # henhouses → east
+        ((72.0, 32.0), (78.0, 100.0)),  # east → packing centre
+        ((18.0, 108.0), (60.0, 114.0)),  # packing centre → west
         ((18.0, -5.0), (24.0, 114.0)),  # west → beside the store
     ):
         roads.box((x0, y0, z0), (x1, y1, z1), M["road"])
     roads.build("ROAD_EGGS", parent=root)
 
 
+def hollow_house(name: str, y0: float, y1: float, root):
+    """Long building with thin walls and an open top, so its inside shows once the roof goes."""
+    x0, x1, z0, z1, t = -HOUSE_HALF_L, HOUSE_HALF_L, GROUND_Z, GROUND_Z + HOUSE_H, 0.25
+    b = MeshBuilder()
+    b.box((x0, y0, z0), (x1, y0 + t, z1), M["farm"])
+    b.box((x0, y1 - t, z0), (x1, y1, z1), M["farm"])
+    b.box((x0, y0, z0), (x0 + t, y1, z1), M["farm"])
+    b.box((x1 - t, y0, z0), (x1, y1, z1), M["farm"])
+    b.box((x0, y0, z0), (x1, y1, z0 + 0.1), M["farm_floor"])
+    return b.build(name, parent=root)
+
+
 def buildings(root) -> None:
-    # Laying-hen house: long, repeated volume (docs/DA.md §06). Interior comes with the reveal.
-    farm_lo, farm_hi = (-60.0, 38.0, GROUND_Z), (40.0, 56.0, GROUND_Z + 6.0)
-    box("BUILDING_EGGS_FARM", farm_lo, farm_hi, M["farm"], root)
+    # Laying-hen houses: repeated long volumes (docs/DA.md §06). The near one opens on reveal.
+    # Close and low enough that, from the guardrail, the near wall hides little of the inside.
+    near_y0, near_y1 = 26.0, 42.0
+    hollow_house("BUILDING_EGGS_FARM", near_y0, near_y1, root)
+    roof_z = GROUND_Z + HOUSE_H
     # Roof as its own object, origin at its centre, so it can be lifted or faded.
-    box("ROOF_EGGS", (-61.0, 37.0, GROUND_Z + 6.0), (41.0, 57.0, GROUND_Z + 6.6), M["farm_roof"], root)
+    box("ROOF_EGGS", (-HOUSE_HALF_L - 0.6, near_y0 - 0.6, roof_z), (HOUSE_HALF_L + 0.6, near_y1 + 0.6, roof_z + 0.5), M["farm_roof"], root)
+    interior(root, near_y0, near_y1)
+    empty("ANCHOR_EGGS_FOCUS", (0.0, (near_y0 + near_y1) / 2, GROUND_Z + 1.0), root)
+
+    far = hollow_house("BUILDING_EGGS_FARM_2", 50.0, 66.0, root)
+    box("BUILDING_EGGS_FARM_2_ROOF", (-HOUSE_HALF_L - 0.6, 49.4, roof_z), (HOUSE_HALF_L + 0.6, 66.6, roof_z + 0.5), M["farm_roof"], far)
 
     plant = box("PACKING_EGGS_CENTER", (60.0, 100.0, GROUND_Z), (95.0, 125.0, GROUND_Z + 8.0), M["plant"], root)
     box("PACKING_EGGS_ROOF", (59.5, 99.5, GROUND_Z + 8.0), (95.5, 125.5, GROUND_Z + 8.4), M["plant_roof"], plant)
+
+
+def interior(root, y0: float, y1: float) -> None:
+    """Deliberately neutral placeholder: the farming system is not chosen yet (TODO_SOURCE).
+
+    Plain long platforms and a cross collection strip at the east end; no cages, perches or
+    animals, so nothing here can pass for a documented installation.
+    """
+    b = MeshBuilder()
+    floor_z = GROUND_Z + 0.1
+    usable = HOUSE_HALF_L - 3.5
+    rows = 3
+    pitch = (y1 - y0) / (rows + 1)
+    for i in range(1, rows + 1):
+        cy = y0 + i * pitch
+        b.box((-usable, cy - 1.2, floor_z), (usable, cy + 1.2, floor_z + 0.7), M["placeholder"])
+    b.box((usable + 0.8, y0 + 1.0, floor_z), (usable + 2.2, y1 - 1.0, floor_z + 0.9), M["placeholder_alt"])
+    b.build("INTERIOR_EGGS", parent=root)
 
 
 def main() -> None:

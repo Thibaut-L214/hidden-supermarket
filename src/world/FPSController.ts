@@ -1,7 +1,8 @@
 // First-person camera: mouse look (pointer lock, or drag when the lock is unavailable) and
 // keyboard walking on flat floors. Keys are read by physical code, so ZQSD on AZERTY and WASD on
 // QWERTY are the same keys (docs/DECISIONS.md, « Entrées »). No head bob or forced shake.
-import type { PerspectiveCamera } from "three";
+import type { PerspectiveCamera, Vector3 } from "three";
+import { ease } from "../core/easing";
 import type { Settings } from "../app/settings";
 import type { CollisionWorld, Vec2 } from "./CollisionWorld";
 
@@ -35,6 +36,28 @@ export function applyLook(view: View, dx: number, dy: number, sensitivity: numbe
   };
 }
 
+/** View that looks from one point at another (pitch clamped like the mouse look). */
+export function viewToward(
+  from: { x: number; y: number; z: number },
+  to: { x: number; y: number; z: number },
+): View {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const dz = to.z - from.z;
+  // forward (-sin yaw, -cos yaw) must point along (dx, dz).
+  const pitch = Math.atan2(dy, Math.hypot(dx, dz));
+  return {
+    yaw: Math.atan2(-dx, -dz),
+    pitch: Math.min(Math.max(pitch, -PITCH_LIMIT), PITCH_LIMIT),
+  };
+}
+
+/** Interpolates along the shortest turn, t in [0, 1]. */
+export function blendView(a: View, b: View, t: number): View {
+  const turn = Math.atan2(Math.sin(b.yaw - a.yaw), Math.cos(b.yaw - a.yaw));
+  return { yaw: a.yaw + turn * t, pitch: a.pitch + (b.pitch - a.pitch) * t };
+}
+
 /** Horizontal displacement for one frame; diagonals are not faster than straight lines. */
 export function walkDelta(
   held: ReadonlySet<Direction>,
@@ -62,6 +85,7 @@ export class FPSController {
   private active = false;
   private dragging = false;
   private releasing = false;
+  private glance: { from: View; to: View; elapsed: number; seconds: number } | null = null;
 
   constructor(
     private readonly camera: PerspectiveCamera,
@@ -106,11 +130,28 @@ export class FPSController {
   setPose(position: { x: number; z: number }, yaw: number): void {
     this.camera.position.set(position.x, this.eyeHeight, position.z);
     this.view = { yaw, pitch: 0 };
+    this.glance = null;
     this.applyView();
+  }
+
+  /**
+   * Optional framing (docs/DA.md §05): turns the view towards a point over a few seconds.
+   * Any mouse movement hands control straight back. Callers skip it under reduced motion.
+   */
+  glanceAt(target: Vector3, seconds = 1.8): void {
+    const to = viewToward(this.camera.position, target);
+    this.glance = { from: { ...this.view }, to, elapsed: 0, seconds };
   }
 
   update(dt: number): void {
     if (!this.active) return;
+    if (this.glance && dt > 0) {
+      const g = this.glance;
+      g.elapsed = Math.min(g.elapsed + dt, g.seconds);
+      this.view = blendView(g.from, g.to, ease(g.elapsed / g.seconds));
+      this.applyView();
+      if (g.elapsed === g.seconds) this.glance = null;
+    }
     const delta = walkDelta(this.held, this.view.yaw, this.settings.moveSpeed, dt);
     const p = this.camera.position;
     const next = this.collisions.move({ x: p.x, z: p.z }, delta);
@@ -135,6 +176,7 @@ export class FPSController {
 
   private readonly onMouseMove = (event: MouseEvent) => {
     if (!this.active || !(this.locked || this.dragging)) return;
+    this.glance = null;
     this.view = applyLook(
       this.view,
       event.movementX,

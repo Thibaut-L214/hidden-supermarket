@@ -2,6 +2,7 @@ import { BoxGeometry, Group, Mesh, Object3D, Scene } from "three";
 import { describe, expect, it } from "vitest";
 import type { AssetContract } from "../src/core/assetContract";
 import type { AssetManager } from "../src/core/AssetManager";
+import { eggs } from "../src/data/chains/eggs";
 import { EventBus } from "../src/core/EventBus";
 import { GameState, type GameEvents } from "../src/core/GameState";
 import {
@@ -96,7 +97,7 @@ function setup(load: () => Promise<Object3D>) {
     collisions,
     storeRoot: root,
     assets: { load } as unknown as AssetManager,
-    chains: { eggs: { id: "eggs", label: "Œufs", terrace: {} as AssetContract } },
+    chains: { eggs: { ...eggs, terrace: {} as AssetContract } },
     player: {
       radius: 0.3,
       position: () => position,
