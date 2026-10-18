@@ -130,6 +130,46 @@ class MeshBuilder:
             mat,
         )
 
+    def cone(
+        self,
+        base: tuple[float, float, float],
+        radius: float,
+        height: float,
+        mat: bpy.types.Material | None = None,
+        segments: int = 14,
+    ) -> "MeshBuilder":
+        x, y, z = base
+        matrix = Matrix.Translation((x, y, z + height / 2))
+        return self._primitive(
+            lambda: bmesh.ops.create_cone(
+                self.bm, cap_ends=True, segments=segments, radius1=radius, radius2=0.0, depth=height, matrix=matrix
+            ),
+            mat,
+        )
+
+    def gable(
+        self,
+        min_corner: tuple[float, float, float],
+        max_corner: tuple[float, float, float],
+        ridge: float,
+        mat: bpy.types.Material | None = None,
+    ) -> "MeshBuilder":
+        """Pitched roof prism along X: eaves at min z, ridge `ridge` metres above, closed ends."""
+        (x0, y0, z0), (x1, y1, z1) = min_corner, max_corner
+        ym = (y0 + y1) / 2
+        index = self._slot(mat)
+        ends = []
+        for x in (x0, x1):
+            ends.append([self.bm.verts.new(v) for v in ((x, y0, z0), (x, y1, z0), (x, y1, z1), (x, ym, z1 + ridge), (x, y0, z1))])
+        a, b = ends
+        faces = [list(reversed(a)), b]
+        for i in range(5):
+            j = (i + 1) % 5
+            faces.append([a[i], a[j], b[j], b[i]])
+        for verts in faces:
+            self.bm.faces.new(verts).material_index = index
+        return self
+
     def _primitive(self, create, mat) -> "MeshBuilder":
         before = set(self.bm.faces)
         create()
@@ -145,6 +185,7 @@ class MeshBuilder:
         parent: bpy.types.Object | None = None,
     ) -> bpy.types.Object:
         mesh = bpy.data.meshes.new(f"ME_{name}")  # distinct from node names in glTF
+        bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces[:])
         self.bm.normal_update()
         self.bm.to_mesh(mesh)
         self.bm.free()

@@ -87,6 +87,12 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - `I` ouvre le détail du cartel affiché (texte long, portée, source ou « à compléter ») et fige le temps de jeu pendant la lecture.
 - Chaque son a un sous-titre descriptif (activé par défaut) ; volume 0 = mode sans audio. Qualité réduite : pixel ratio 1, sans ombres.
 
+## Assets, compression et son (étape 6)
+
+- Les assets restent générés par script : c'est une passe artistique de blockout (toits à deux pans, silos, ventilations, quais, camions, champs, haies, collines ; caisses, rails de prix, têtes de gondole au magasin), pas des assets validés. L'intérieur du hangar reste neutre tant que le système d'élevage n'est pas choisi. Un `.blend` retouché par un artiste remplace le blockout sans toucher au code, tant que le contrat de nommage est respecté.
+- Export brut dans `blender/out/` (hors dépôt), puis `scripts/optimize-glb.mjs` vers `public/assets/`. KTX2 conditionné à KTX-Software.
+- Son entièrement synthétisé (aucun enregistrement à licencier) : ventilation et nappe musicale au magasin, nappe atténuée et grondement grave après le scan, vent sur la terrasse et le parvis, moteurs spatialisés sur chaque objet `TRUCK_*` en mouvement. Aucun son animal. Contexte audio suspendu pendant la pause.
+
 ## Entrées
 
 - Touches lues via `KeyboardEvent.code` : ZQSD (AZERTY) et WASD (QWERTY) correspondent aux mêmes codes physiques.

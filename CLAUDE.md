@@ -41,7 +41,8 @@ Blender attendu dans `/Applications/Blender.app` ; sinon `BLENDER=/chemin/vers/b
 ## Pipeline d'assets
 
 - `blender/scripts/build_*.py` : blockouts procéduraux reproductibles.
-- `blender/scripts/export.py` : export GLB standard, à utiliser aussi pour les `.blend` retouchés à la main.
+- `blender/scripts/export.py` : export GLB standard (vers `blender/out/`, hors dépôt), à utiliser aussi pour les `.blend` retouchés à la main.
+- `scripts/optimize-glb.mjs` : compression meshopt vers `public/assets/` ; KTX2 nécessite KTX-Software (`toktx`).
 - Après tout export : `pnpm test` vérifie noms, hiérarchie et échelle des nœuds.
 
 ## Méthode

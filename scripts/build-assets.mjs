@@ -1,4 +1,4 @@
-// Builds blockout .blend files (only when missing) and exports every .blend to GLB.
+// Builds blockout .blend files (only when missing), exports every .blend to GLB and optimises it.
 // Usage: pnpm assets [--rebuild]   (--rebuild regenerates blockouts, overwriting the .blend)
 // BLENDER env var overrides the Blender executable path.
 import { execFileSync } from "node:child_process";
@@ -38,6 +38,12 @@ for (const asset of ASSETS) {
     console.log(`→ blockout ${asset.blend}`);
     blender(["-P", resolve(asset.builder), "--", blend]);
   }
-  console.log(`→ export ${asset.glb}`);
-  blender([blend, "-P", resolve("blender/scripts/export.py"), "--", resolve(asset.glb)]);
+  // Raw export kept out of the repository, then optimised into public/.
+  const raw = resolve("blender/out", asset.glb.split("/").pop());
+  console.log(`→ export ${raw}`);
+  blender([blend, "-P", resolve("blender/scripts/export.py"), "--", raw]);
+  console.log(`→ optimise ${asset.glb}`);
+  execFileSync(process.execPath, [resolve("scripts/optimize-glb.mjs"), raw, resolve(asset.glb)], {
+    stdio: "inherit",
+  });
 }

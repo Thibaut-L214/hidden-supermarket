@@ -45,6 +45,10 @@ def materials() -> None:
     M["shelf"] = material("M_SHELF_METAL", "#DAD7CF", roughness=0.45, metallic=0.2)
     M["accent"] = material("M_SHELF_ACCENT", "#A9C2A0", roughness=0.6)
     M["carton"] = material("M_EGG_CARTON", "#CDBFA4", roughness=0.9)
+    M["carton_alt"] = material("M_EGG_CARTON_ALT", "#BDB8AC", roughness=0.9)
+    M["rail_label"] = material("M_PRICE_RAIL", "#F4F1E8", roughness=0.6)
+    M["joint"] = material("M_FLOOR_JOINT", "#CFC9BC", roughness=0.6)
+    M["belt"] = material("M_CHECKOUT_BELT", "#4A4F52", roughness=0.7)
     M["sign"] = material("M_SIGN", "#F7F4EC", roughness=0.7)
     M["glass"] = material("M_ENTRANCE_GLASS", "#C9D3D6", roughness=0.15, metallic=0.1)
     # Forecourt: natural light and human tones (docs/DA.md §03, « Sortie L214 »).
@@ -106,6 +110,25 @@ def shell(root) -> None:
 
     empty("SPAWN_PLAYER", (0.0, -7.0, 0.0), root)
 
+    # Floor joints every 2.4 m give the eye a sense of scale.
+    joints = MeshBuilder()
+    for i in range(-4, 5):
+        x = i * 2.4
+        joints.box((x - 0.006, -HALF_Y, 0.0), (x + 0.006, HALF_Y, 0.002), M["joint"])
+    for j in range(-3, 4):
+        y = j * 2.4
+        joints.box((-HALF_X, y - 0.006, 0.0), (HALF_X, y + 0.006, 0.002), M["joint"])
+    joints.build("STORE_FLOOR_JOINTS", parent=root)
+
+    # Two checkout counters by the entrance, clear of the central walkway.
+    for side, (x0, x1) in (("L", (-7.0, -4.6)), ("R", (4.6, 7.0))):
+        c = MeshBuilder()
+        c.box((x0, -6.4, 0.0), (x1, -5.6, 0.85), M["shelf"])
+        c.box((x0, -6.3, 0.85), (x1 - 0.6, -5.7, 0.9), M["belt"])
+        c.box((x1 - 0.5, -6.25, 0.85), (x1 - 0.15, -5.95, 1.15), M["belt"])
+        c.build(f"STORE_CHECKOUT_{side}", parent=root)
+        helper_volume(box(f"COL_CHECKOUT_{side}", (x0, -6.4, 0.0), (x1, -5.6, 1.15), None, root))
+
 
 def gondola_module(builder: MeshBuilder, x0: float, y0: float, length: float, depth: float, height: float) -> None:
     """Double-sided generic gondola: frame, shelves and stylised product blocks."""
@@ -113,14 +136,19 @@ def gondola_module(builder: MeshBuilder, x0: float, y0: float, length: float, de
     builder.box((x0 + depth / 2 - 0.03, y0, 0.0), (x0 + depth / 2 + 0.03, y1, height), M["shelf"])
     builder.box((x0, y0, 0.0), (x1, y1, 0.12), M["accent"])
     products = (M["prod_a"], M["prod_b"], M["prod_c"])
+    heights = (0.3, 0.22, 0.26, 0.18)
     for level, z in enumerate((0.12, 0.55, 0.98, 1.41)):
         builder.box((x0, y0, z), (x1, y1, z + 0.03), M["shelf"])
+        # Blank price rails on both faces: commercial look, no real prices or brands.
+        builder.box((x0 - 0.01, y0, z - 0.02), (x0 + 0.01, y1, z + 0.05), M["rail_label"])
+        builder.box((x1 - 0.01, y0, z - 0.02), (x1 + 0.01, y1, z + 0.05), M["rail_label"])
         for side in (0, 1):
             sx0 = x0 + 0.04 if side == 0 else x0 + depth / 2 + 0.06
             for i in range(int(length / 0.3)):
                 py = y0 + 0.03 + i * 0.3
                 mat = products[(i + level + side) % 3]
-                builder.box((sx0, py, z + 0.03), (sx0 + depth / 2 - 0.1, py + 0.24, z + 0.33), mat)
+                h = heights[(i * 3 + level + side) % 4]
+                builder.box((sx0, py, z + 0.03), (sx0 + depth / 2 - 0.1, py + 0.24, z + 0.03 + h), mat)
 
 
 def generic_shelving(root) -> None:
@@ -130,6 +158,11 @@ def generic_shelving(root) -> None:
         b = MeshBuilder()
         for m in range(modules):
             gondola_module(b, 0.0, m * module_len, module_len, depth, height)
+        # End caps and a blank header at both ends of the gondola run.
+        run = modules * module_len
+        for y0, y1 in ((-0.06, 0.0), (run, run + 0.06)):
+            b.box((0.0, y0, 0.0), (depth, y1, height + 0.05), M["accent"])
+            b.box((0.05, y0 - 0.01, height + 0.12), (depth - 0.05, y1 + 0.01, height + 0.42), M["sign"])
         b.build(f"SHELF_GENERIC_{row + 1:02d}", (x, y_start, 0.0), root)
         helper_volume(
             box(f"COL_SHELF_GENERIC_{row + 1:02d}", (x, y_start, 0), (x + depth, y_start + modules * module_len, height), None, root)
@@ -160,11 +193,16 @@ def door_half(hinge, side: int):
     b.box((bx0, 0.0, 0.0), (bx1, SHELF_DEPTH, 0.12), M["accent"])
     for z in (0.12, 0.6, 1.08, 1.56):
         b.box((bx0, 0.0, z), (bx1, SHELF_DEPTH - 0.04, z + 0.03), M["shelf"])
-        # Egg cartons: stylised, unbranded blocks.
+        # Blank price rail along the shelf front.
+        b.box((bx0, -0.01, z - 0.02), (bx1, 0.01, z + 0.05), M["rail_label"])
+        # Egg cartons: base and slightly narrower lid, two stacked, unbranded.
         for i in range(5):
             cx0, cx1 = span(0.08 + i * 0.28, 0.08 + i * 0.28 + 0.24)
-            b.box((cx0, 0.06, z + 0.03), (cx1, 0.36, z + 0.13), M["carton"])
-            b.box((cx0, 0.06, z + 0.13), (cx1, 0.36, z + 0.23), M["carton"])
+            mat = M["carton"] if (i + int(z * 10)) % 2 == 0 else M["carton_alt"]
+            for k in range(2):
+                zb = z + 0.03 + k * 0.17
+                b.box((cx0, 0.06, zb), (cx1, 0.36, zb + 0.08), mat)
+                b.box((cx0 + 0.01, 0.07, zb + 0.08), (cx1 - 0.01, 0.35, zb + 0.15), mat)
     door = b.build(f"DOOR_EGGS_{name}", parent=hinge)
     collider = MeshBuilder().box((bx0, 0.0, 0.0), (bx1, SHELF_DEPTH, h)).build(f"COL_DOOR_EGGS_{name}", parent=door)
     helper_volume(collider)

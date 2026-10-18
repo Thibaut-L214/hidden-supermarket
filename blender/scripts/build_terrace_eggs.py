@@ -42,6 +42,18 @@ def materials() -> None:
     M["placeholder"] = material("M_PLACEHOLDER", "#D8D2C4", roughness=0.9)
     M["placeholder_alt"] = material("M_PLACEHOLDER_ALT", "#A8B3B8", roughness=0.8)
     M["farm_roof"] = material("M_FARM_ROOF", "#7F7A72", roughness=0.7, metallic=0.2)
+    M["fan"] = material("M_FARM_FAN", "#5C5A55", roughness=0.7)
+    M["silo"] = material("M_SILO", "#C8CCCF", roughness=0.4, metallic=0.5)
+    M["dock"] = material("M_DOCK_DOOR", "#5F666C", roughness=0.6, metallic=0.3)
+    M["plant_annex"] = material("M_PLANT_ANNEX", "#D9DCDF", roughness=0.7)
+    M["glass_dark"] = material("M_TRUCK_GLASS", "#2E3438", roughness=0.15, metallic=0.2)
+    M["field_a"] = material("M_FIELD_A", "#A9A57F", roughness=1.0)
+    M["field_b"] = material("M_FIELD_B", "#8F9873", roughness=1.0)
+    M["field_c"] = material("M_FIELD_C", "#B7AE8A", roughness=1.0)
+    M["hedge"] = material("M_HEDGE", "#6F7F5C", roughness=1.0)
+    M["trunk"] = material("M_TREE_TRUNK", "#6E5D4A", roughness=0.9)
+    M["foliage"] = material("M_TREE_FOLIAGE", "#7F9468", roughness=0.9)
+    M["hill"] = material("M_HILL", "#9AA08A", roughness=1.0)
     M["crate"] = material("M_CRATE", "#7E9C88", roughness=0.8)
     M["carton"] = material("M_CARTON", "#D9C9A6", roughness=0.9)
     M["truck_cab"] = material("M_TRUCK_CAB", "#E6E4DE", roughness=0.5, metallic=0.1)
@@ -91,6 +103,29 @@ def landscape(root) -> None:
         roads.box((x0, y0, z0), (x1, y1, z1), M["road"])
     roads.build("ROAD_EGGS", parent=root)
 
+    # Field patches, hedgerows and tree lines: depth cues, no claim about the site.
+    fields = MeshBuilder()
+    tones = (M["field_a"], M["field_b"], M["field_c"])
+    for i, (x0, y0, x1, y1) in enumerate((
+        (-120.0, 80.0, -40.0, 160.0), (-40.0, 130.0, 15.0, 200.0), (100.0, 20.0, 180.0, 90.0),
+        (100.0, 130.0, 170.0, 220.0), (-140.0, -20.0, -60.0, 60.0), (30.0, 140.0, 95.0, 210.0),
+    )):
+        fields.box((x0, y0, GROUND_Z), (x1, y1, GROUND_Z + 0.02), tones[i % 3])
+    fields.build("FIELDS_EGGS", parent=root)
+
+    hedges = MeshBuilder()
+    for x0, y0, x1, y1 in ((-120.0, 78.0, -40.0, 80.0), (100.0, 18.0, 180.0, 20.0), (98.0, 20.0, 100.0, 90.0), (-42.0, 130.0, -40.0, 200.0)):
+        hedges.box((x0, y0, GROUND_Z), (x1, y1, GROUND_Z + 1.6), M["hedge"])
+    for x, y in [(26.0 + 0.0, yy) for yy in range(0, 105, 9)] + [(xx, 117.0) for xx in range(24, 60, 9)]:
+        hedges.cylinder((x, y, GROUND_Z), 0.18, 2.4, M["trunk"], segments=6)
+        hedges.sphere((x, y, GROUND_Z + 3.6), 1.9, M["foliage"])
+    hedges.build("HEDGES_EGGS", parent=root)
+
+    hills = MeshBuilder()
+    for x, y, rad, h in ((-180.0, 300.0, 90.0, 18.0), (60.0, 360.0, 120.0, 22.0), (220.0, 280.0, 80.0, 14.0)):
+        hills.cone((x, y, GROUND_Z - 0.5), rad, h, M["hill"], segments=24)
+    hills.build("HILLS_EGGS", parent=root)
+
 
 def hollow_house(name: str, y0: float, y1: float, root):
     """Long building with thin walls and an open top, so its inside shows once the roof goes."""
@@ -101,7 +136,22 @@ def hollow_house(name: str, y0: float, y1: float, root):
     b.box((x0, y0, z0), (x0 + t, y1, z1), M["farm"])
     b.box((x1 - t, y0, z0), (x1, y1, z1), M["farm"])
     b.box((x0, y0, z0), (x1, y1, z0 + 0.1), M["farm_floor"])
+    # Ventilation units along both long faces and a service door at the east end.
+    for i in range(7):
+        fx = x0 + 6.0 + i * ((x1 - x0) - 12.0) / 6
+        for y, d in ((y0, -0.15), (y1, 0.15)):
+            b.box((fx - 0.6, min(y, y + d), z0 + 1.6), (fx + 0.6, max(y, y + d), z0 + 2.8), M["fan"])
+    b.box((x1, (y0 + y1) / 2 - 1.5, z0), (x1 + 0.1, (y0 + y1) / 2 + 1.5, z0 + 3.0), M["fan"])
     return b.build(name, parent=root)
+
+
+def gable_roof(name: str, lo, hi, ridge: float, mat, parent):
+    """Pitched roof with closed gables, origin at the centre of its eaves (for lifting)."""
+    centre = ((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2])
+    local_lo = tuple(a - c for a, c in zip(lo, centre))
+    local_hi = tuple(a - c for a, c in zip(hi, centre))
+    origin = centre if parent is None else tuple(c - p for c, p in zip(centre, parent.matrix_world.translation))
+    return MeshBuilder().gable(local_lo, local_hi, ridge, mat).build(name, origin, parent)
 
 
 def buildings(root) -> None:
@@ -111,15 +161,38 @@ def buildings(root) -> None:
     hollow_house("BUILDING_EGGS_FARM", near_y0, near_y1, root)
     roof_z = GROUND_Z + HOUSE_H
     # Roof as its own object, origin at its centre, so it can be lifted or faded.
-    box("ROOF_EGGS", (-HOUSE_HALF_L - 0.6, near_y0 - 0.6, roof_z), (HOUSE_HALF_L + 0.6, near_y1 + 0.6, roof_z + 0.5), M["farm_roof"], root)
+    gable_roof("ROOF_EGGS", (-HOUSE_HALF_L - 0.6, near_y0 - 0.6, roof_z), (HOUSE_HALF_L + 0.6, near_y1 + 0.6, roof_z + 0.3), 2.2, M["farm_roof"], root)
     interior(root, near_y0, near_y1)
     empty("ANCHOR_EGGS_FOCUS", (0.0, (near_y0 + near_y1) / 2, GROUND_Z + 1.0), root)
 
     far = hollow_house("BUILDING_EGGS_FARM_2", 50.0, 66.0, root)
-    box("BUILDING_EGGS_FARM_2_ROOF", (-HOUSE_HALF_L - 0.6, 49.4, roof_z), (HOUSE_HALF_L + 0.6, 66.6, roof_z + 0.5), M["farm_roof"], far)
+    gable_roof("BUILDING_EGGS_FARM_2_ROOF", (-HOUSE_HALF_L - 0.6, 49.4, roof_z), (HOUSE_HALF_L + 0.6, 66.6, roof_z + 0.3), 2.2, M["farm_roof"], far)
+
+    # Feed silos at the west end of the henhouses.
+    silos = MeshBuilder()
+    for i, y in enumerate((30.0, 36.0, 54.0)):
+        x = -HOUSE_HALF_L - 4.0
+        silos.cylinder((x, y, GROUND_Z + 1.2), 1.6, 6.5, M["silo"], segments=18)
+        silos.cone((x, y, GROUND_Z + 7.7), 1.65, 1.4, M["silo"], segments=18)
+        for lx, ly in ((-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)):
+            silos.box((x + lx - 0.08, y + ly - 0.08, GROUND_Z), (x + lx + 0.08, y + ly + 0.08, GROUND_Z + 1.3), M["truck_bed"])
+    silos.build("SILOS_EGGS", parent=root)
 
     plant = box("PACKING_EGGS_CENTER", (60.0, 100.0, GROUND_Z), (95.0, 125.0, GROUND_Z + 8.0), M["plant"], root)
-    box("PACKING_EGGS_ROOF", (59.5, 99.5, GROUND_Z + 8.0), (95.5, 125.5, GROUND_Z + 8.4), M["plant_roof"], plant)
+    details = MeshBuilder()
+    details.box((59.5, 99.5, GROUND_Z + 8.0), (95.5, 125.5, GROUND_Z + 8.4), M["plant_roof"])
+    # Loading docks: inbound on the south face, outbound on the west face, under canopies.
+    for i in range(3):
+        dx = 68.0 + i * 6.0
+        details.box((dx, 99.85, GROUND_Z), (dx + 3.2, 100.0, GROUND_Z + 3.6), M["dock"])
+    details.box((64.0, 96.0, GROUND_Z + 4.4), (88.0, 100.0, GROUND_Z + 4.7), M["plant_roof"])
+    for i in range(2):
+        dy = 106.0 + i * 6.0
+        details.box((59.85, dy, GROUND_Z), (60.0, dy + 3.2, GROUND_Z + 3.6), M["dock"])
+    details.box((56.0, 104.0, GROUND_Z + 4.4), (60.0, 118.0, GROUND_Z + 4.7), M["plant_roof"])
+    # Office annex, lower and lighter.
+    details.box((95.0, 112.0, GROUND_Z), (103.0, 124.0, GROUND_Z + 4.5), M["plant_annex"])
+    details.build("PACKING_EGGS_DETAILS", parent=plant)
 
 
 def interior(root, y0: float, y1: float) -> None:
@@ -155,7 +228,11 @@ def truck(name: str, cargo: str, cargo_size, location, parent):
     root = empty(name, location, parent)
     b = MeshBuilder()
     b.box((-1.2, 2.2, 0.4), (1.2, 4.2, 3.0), M["truck_cab"])  # cab at the front
+    b.box((-1.05, 4.2, 1.8), (1.05, 4.25, 2.8), M["glass_dark"])  # windscreen
+    b.box((-1.25, 4.2, 0.4), (1.25, 4.4, 0.75), M["truck_bed"])  # bumper
     b.box((-1.2, -4.2, 0.9), (1.2, 2.0, 1.2), M["truck_bed"])  # flat bed
+    for x in (-1.2, 1.12):
+        b.box((x, -4.2, 1.2), (x + 0.08, 2.0, 1.55), M["truck_bed"])  # side rails
     for y in (-3.2, 3.2):
         b.box((-1.3, y - 0.5, 0.0), (1.3, y + 0.5, 0.9), M["truck_wheel"])
     b.build(f"{name}_BODY", parent=root)

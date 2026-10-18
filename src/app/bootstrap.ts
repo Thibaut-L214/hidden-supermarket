@@ -22,6 +22,7 @@ import { SourcePanel } from "../ui/SourcePanel";
 import { Subtitles } from "../ui/Subtitles";
 import { CUE_SUBTITLES, type Cue, playCue } from "../ui/sound";
 import { Atmosphere } from "../world/Atmosphere";
+import { Soundscape } from "../world/Soundscape";
 import { CollisionWorld } from "../world/CollisionWorld";
 import { FPSController } from "../world/FPSController";
 import { EYE_HEIGHT, StoreWorld } from "../world/StoreWorld";
@@ -67,12 +68,13 @@ const game = new GameState(bus);
 const session = new Session();
 trackExploration(bus, session);
 const clock = new GameClock();
-const assets = new AssetManager();
+const assets = new AssetManager(renderer);
 const collisions = new CollisionWorld();
 const fps = new FPSController(camera, canvas, collisions, settings, EYE_HEIGHT);
 const hud = new HUD(element("#reticle"), element("#hud-prompt"), status, element("#caption"));
 const atmosphere = new Atmosphere(scene, renderer);
 const subtitles = new Subtitles(element("#subtitles"));
+const soundscape = new Soundscape(camera);
 const perf = new PerfMonitor();
 const perfOverlay = new PerfOverlay(element("#perf"), perf, renderer, assets.timings);
 if (new URLSearchParams(location.search).has("perf")) perfOverlay.toggle();
@@ -80,13 +82,15 @@ if (new URLSearchParams(location.search).has("perf")) perfOverlay.toggle();
 function applySettings(): void {
   renderer.setPixelRatio(settings.lowQuality ? 1 : Math.min(window.devicePixelRatio, 2));
   atmosphere.setShadows(!settings.lowQuality);
+  soundscape.setVolume(settings.volume);
   resize();
 }
 applySettings();
 
 /** Plays a sound cue and, when subtitles are on, describes it on screen. */
 function cue(kind: Cue): void {
-  playCue(kind, settings.volume);
+  const output = soundscape.output;
+  if (output) playCue(kind, output);
   if (settings.subtitles) subtitles.show(CUE_SUBTITLES[kind]);
 }
 
@@ -112,6 +116,7 @@ const pauseMenu = new PauseMenu(
   applySettings,
 );
 const intro = new IntroScreen(element("#intro"), settings, () => {
+  soundscape.start();
   game.send({ type: "START" });
   resume();
 });
@@ -254,6 +259,7 @@ function createWorld(store: StoreWorld) {
       atmosphere.shade(root);
       stage.attach(config, root);
     } else stage.detach();
+    soundscape.setVehicles(root);
   };
   const exit = new ExitScene({
     game,
@@ -305,11 +311,16 @@ function step(dt: number): void {
     scanner.update(dt);
     const target = scanner.target?.chainId;
     hud.setAim(target ? (CHAINS[target]?.label ?? target) : null, scanner.progress);
+    // Aiming at a shelf is a strong hint: fetch its module now so the doors open sooner.
+    const terrace = target ? CHAINS[target]?.terrace : undefined;
+    if (terrace) assets.load(terrace).catch(() => {});
     transition.update(dt);
     stage.update(dt);
     exit.update(dt);
     atmosphere.update(dt, Math.max(transition.outdoorTarget, exit.outdoorTarget));
   }
+  soundscape.setPaused(clock.paused);
+  soundscape.update(dt, game.snapshot.state, atmosphere.outdoor);
   renderer.render(scene, camera);
 }
 
@@ -351,6 +362,7 @@ if (import.meta.env.DEV) {
       settings,
       renderer,
       assets,
+      soundscape,
       get world() {
         return world;
       },

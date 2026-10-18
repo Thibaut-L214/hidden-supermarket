@@ -1,4 +1,6 @@
 import { NodeIO, type Document } from "@gltf-transform/core";
+import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
+import { MeshoptDecoder } from "meshoptimizer";
 import { resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
@@ -9,6 +11,14 @@ import {
   type ContractNode,
 } from "../src/core/assetContract";
 import { eggs } from "../src/data/chains/eggs";
+
+/** Reader for the optimised GLBs (meshopt-compressed, quantised). */
+async function reader(): Promise<NodeIO> {
+  await MeshoptDecoder.ready;
+  return new NodeIO()
+    .registerExtensions(ALL_EXTENSIONS)
+    .registerDependencies({ "meshopt.decoder": MeshoptDecoder });
+}
 
 function contractNodes(doc: Document): ContractNode[] {
   return doc
@@ -53,7 +63,7 @@ describe.each([STORE_CONTRACT, TERRACE_EGGS_CONTRACT])("$url", (contract) => {
   let doc: Document;
 
   beforeAll(async () => {
-    doc = await new NodeIO().read(resolve("public", `.${contract.url}`));
+    doc = await (await reader()).read(resolve("public", `.${contract.url}`));
   });
 
   it("honours the naming contract", () => {
@@ -72,7 +82,7 @@ describe.each([STORE_CONTRACT, TERRACE_EGGS_CONTRACT])("$url", (contract) => {
 
 describe("eggs timeline objects", () => {
   it("exist in the terrace GLB, with at least two points per path", async () => {
-    const doc = await new NodeIO().read(resolve("public", `.${TERRACE_EGGS_CONTRACT.url}`));
+    const doc = await (await reader()).read(resolve("public", `.${TERRACE_EGGS_CONTRACT.url}`));
     const names = new Set(
       doc
         .getRoot()

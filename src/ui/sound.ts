@@ -1,7 +1,5 @@
 // Short synthesised cues (docs/DA.md §05, §07). Each cue has a subtitle describing it, shown
 // when subtitles are on (docs/DA.md §08), so no information depends on hearing.
-let context: AudioContext | null = null;
-
 export type Cue = "scan" | "doors";
 
 export const CUE_SUBTITLES: Record<Cue, string> = {
@@ -9,27 +7,19 @@ export const CUE_SUBTITLES: Record<Cue, string> = {
   doors: "[Mécanisme feutré des portes]",
 };
 
-function audio(): AudioContext | null {
-  try {
-    context ??= new AudioContext();
-    return context;
-  } catch {
-    return null;
-  }
-}
-
-/** Plays a cue at the given master volume (0 = silent). Skipped if audio is unavailable. */
-export function playCue(cue: Cue, volume: number): void {
-  const ctx = volume > 0 ? audio() : null;
-  if (!ctx) return;
+/**
+ * Plays a cue into `output` (the soundscape's master input, so the volume setting applies).
+ */
+export function playCue(cue: Cue, output: AudioNode): void {
+  const ctx = output.context;
   const t = ctx.currentTime;
   const gain = ctx.createGain();
-  gain.connect(ctx.destination);
+  gain.connect(output);
 
   if (cue === "scan") {
     const osc = ctx.createOscillator();
     osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.08 * volume, t);
+    gain.gain.setValueAtTime(0.08, t);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
     osc.connect(gain);
     osc.start(t);
@@ -52,7 +42,7 @@ export function playCue(cue: Cue, volume: number): void {
   lowpass.type = "lowpass";
   lowpass.frequency.value = 260;
   gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.25 * volume, t + 0.4);
+  gain.gain.exponentialRampToValueAtTime(0.25, t + 0.4);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + seconds);
   source.connect(lowpass).connect(gain);
   source.start(t);

@@ -8,24 +8,29 @@ Budgets de référence : TECH.md §07 (60 fps visés, p95 < 25 ms, 30 fps stable
 - L'encart affiche : fps moyen et p95 du temps d'image (fenêtre glissante de 300 images), draw calls, triangles, géométries, textures, tas JS (Chrome uniquement), temps de chargement de chaque GLB.
 - Mesurer sur la fenêtre visible et au premier plan : un onglet masqué ne produit pas d'images.
 
-## Relevé du 2026-10-18 (Chrome, macOS, fenêtre 858 × 1072, devicePixelRatio 2)
+## Relevé du 2026-10-18, après l'étape 6 (Chrome, macOS, fenêtre 858 × 1072, devicePixelRatio 2)
 
-Compteurs de rendu, relevés par image dans le navigateur intégré. Ils ne dépendent pas du matériel.
+Compteurs de rendu, relevés par image dans le navigateur intégré. Ils ne dépendent pas du matériel. Entre parenthèses, les valeurs de l'étape 5, avant la passe artistique.
 
 | Vue | Draw calls | Triangles |
 | --- | ---: | ---: |
-| Magasin, vue de départ (allée centrale) | 41 | 16 514 |
-| Magasin, le long des gondoles | 15 | 6 852 |
-| Terrasse, chaîne en cours, regard sur le hangar | 36 | 1 044 |
-| Parvis, vue vers l'extérieur | 13 | 2 580 |
+| Magasin, vue de départ (allée centrale) | 54 (41) | 20 642 (16 514) |
+| Magasin, le long des gondoles | 20 (15) | 8 484 (6 852) |
+| Terrasse, chaîne en cours, regard sur le hangar | 74 (36) | 13 146 (1 044) |
+| Parvis, vue vers l'extérieur | 14 (13) | 2 772 (2 580) |
 
-| Ressource | Valeur |
+| Ressource | Export Blender | Optimisé (servi) | Chargement local |
+| --- | ---: | ---: | ---: |
+| `store.glb` | 1 179 Ko | 246 Ko | 10 ms |
+| `terrace_eggs.glb` | 434 Ko | 200 Ko | 15 ms |
+
+| Autre | Valeur |
 | --- | --- |
-| `store.glb` | 960 Ko, chargé et validé en 27 ms (local) |
-| `terrace_eggs.glb` | 82 Ko, chargé et validé en 7 ms (local) |
-| Bundle JS de production | 669 Ko (174 Ko gzip), dont three.js pour l'essentiel |
-| Tas JS après une visite complète | 24 Mo |
-| Programmes de shaders | 9 |
+| Bundle JS de production | 768 Ko (209 Ko gzip), dont three.js, le décodeur meshopt et KTX2Loader |
+| Tas JS après une visite | 23 Mo |
+| Programmes de shaders | 7 |
+
+Le module de terrasse est préchargé dès que le joueur vise le rayon : les portes s'ouvrent sans attente réseau perceptible.
 
 ## Non mesuré
 
@@ -35,5 +40,6 @@ Compteurs de rendu, relevés par image dans le navigateur intégré. Ils ne dép
 ## Pistes si un budget est dépassé
 
 - Qualité graphique réduite (menu pause) : pixel ratio 1, ombres du soleil coupées.
-- `store.glb` est le plus lourd : les produits des gondoles sont des boîtes séparées. Fusionner par matériau ou instancier (`EXT_mesh_gpu_instancing`), puis compresser (meshopt via `@gltf-transform/cli`) à l'étape des assets définitifs.
-- Textures définitives en KTX2 avec tailles contrôlées.
+- Les GLB passent par `scripts/optimize-glb.mjs` : dedup, prune (empties conservés), weld, reorder, compression meshopt par filtres. Pas de quantification : elle déplacerait des échelles dans les transforms de nœuds, dont dépendent pivots et contrat.
+- Textures définitives en KTX2 : installer KTX-Software (`toktx`) ; le script signale les textures restées non compressées. Le runtime sait déjà les lire (`KTX2Loader`, transcodeur copié dans `public/basis/`).
+- Ne pas basculer `renderer.shadowMap.autoUpdate` à la volée : avec three r186, les matériaux compilés ensuite perdent leurs uniforms de brouillard (scène noyée dans la brume).
