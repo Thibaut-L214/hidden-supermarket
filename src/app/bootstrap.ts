@@ -193,7 +193,6 @@ document.addEventListener("keydown", (event) => {
   if (event.repeat) return;
   if (event.code === "Backquote") perfOverlay.toggle();
   if (event.code === "KeyI" && !sourcePanel.visible) showDetail();
-  if (event.code === "KeyE" && !dialogOpen()) world?.exit.press();
   if (event.code === "KeyP" && !recap.visible && !sourcePanel.visible && !endMenu.visible) {
     if (pauseMenu.visible) resume();
     else pause();
@@ -274,7 +273,6 @@ function createWorld(store: StoreWorld) {
     game,
     storeRoot: store.root,
     player,
-    hud: { setHint: (text) => hud.setHint("exit", text) },
     onDoorsMoved: () => collisions.refresh(),
   });
   return { store, scanner, transition, stage, exit };

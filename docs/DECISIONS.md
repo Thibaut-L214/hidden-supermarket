@@ -19,7 +19,7 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 | TERRACE, REVEAL, CHAIN, RECAP | RETURN | joueur refranchit le seuil |
 | RETURN | STORE | portes refermées après le passage |
 | RETURN | TERRACE | joueur repasse côté terrasse avant la fermeture (portes rouvertes) |
-| STORE | EXIT | `E` dans la zone de la porte d'entrée |
+| STORE | EXIT | joueur franchit le seuil de la porte d'entrée |
 | EXIT | END_MENU | arrivée sur le parvis |
 | EXIT | STORE | joueur rentré dans le magasin avant le parvis |
 | END_MENU | STORE | « Revenir dans le magasin » |
@@ -74,7 +74,7 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 
 ## Sortie et fin de visite
 
-- Le parvis fait partie de `store.glb` (petit, contigu à l'entrée) ; la sortie se déclenche par `E` dans `TRIGGER_EXIT`, jamais en marchant par mégarde. Les portes coulissent dans le mur et ne se referment pas sur le joueur.
+- Le parvis fait partie de `store.glb` (petit, contigu à l'entrée). Portes automatiques : les deux vantaux coulissent dans le mur dès que le joueur approche (0,8 m avant `TRIGGER_EXIT` côté magasin, 3 m côté parvis) et se referment quand plus personne n'est près, jamais sur le joueur. Elles ne s'ouvrent qu'en `STORE` ou `EXIT` (pas pendant la visite d'un rayon). Franchir le seuil déclenche la sortie ; revenir dans le magasin l'annule ; l'arrivée sur le parvis ouvre le menu de fin.
 - Les bénévoles sont des figures stylisées, immobiles, sur le côté du passage ; aucun ne bloque la sortie. Tracts et stand sans texte ni logo.
 - Menu de fin : liens uniquement vers `l214.com` en HTTPS, ouverts dans un nouvel onglet sur clic explicite ; une adresse inconnue reste `null` et s'affiche « lien à confirmer ». « Terminer la visite » ne demande rien.
 
