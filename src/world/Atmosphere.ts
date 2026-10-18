@@ -47,6 +47,11 @@ export class Atmosphere {
     this.apply();
   }
 
+  /** Building-scale sun shadows; off in reduced quality. */
+  setShadows(enabled: boolean): void {
+    this.sun.castShadow = enabled;
+  }
+
   /** Lets an outdoor module cast and receive the sun's shadows. */
   shade(root: Object3D): void {
     root.traverse((object) => {

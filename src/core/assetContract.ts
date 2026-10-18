@@ -60,13 +60,29 @@ function shelfContract(chain: ChainId): Pick<AssetContract, "required" | "parent
   };
 }
 
+/** Store exit: sliding entrance leaves, exit zone inside, forecourt zone outside. */
+export const EXIT_NODES = {
+  doorL: "STORE_ENTRANCE_DOOR_L",
+  doorR: "STORE_ENTRANCE_DOOR_R",
+  exitZone: "TRIGGER_EXIT",
+  parvisZone: "TRIGGER_PARVIS",
+  parvis: "PARVIS_ROOT",
+} as const;
+
 const eggsShelf = shelfContract("eggs");
 
 export const STORE_CONTRACT: AssetContract = {
   url: "/assets/store/store.glb",
-  required: ["STORE_ROOT", "SPAWN_PLAYER", "TRIGGER_EXIT", ...eggsShelf.required],
-  parents: eggsShelf.parents,
-  prefixes: [{ prefix: "COL_", min: 1 }],
+  required: ["STORE_ROOT", "SPAWN_PLAYER", ...Object.values(EXIT_NODES), ...eggsShelf.required],
+  parents: {
+    ...eggsShelf.parents,
+    COL_ENTRANCE_DOOR_L: EXIT_NODES.doorL,
+    COL_ENTRANCE_DOOR_R: EXIT_NODES.doorR,
+  },
+  prefixes: [
+    { prefix: "COL_", min: 1 },
+    { prefix: "VOLUNTEER_", min: 2 },
+  ],
 };
 
 const eggsTerrace = terraceNodes("eggs");

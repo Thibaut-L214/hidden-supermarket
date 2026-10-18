@@ -11,6 +11,7 @@ Lead développeur Three.js/TypeScript et intégrateur Blender GLB.
 - `docs/DA.md`, `docs/GDD.md`, `docs/TECH.md` : références de production.
 - `docs/DECISIONS.md` : arbitrages entre ces documents ; prime en cas de conflit.
 - `docs/CONTENT_SCHEMA.md` : format des cartels et sources.
+- `docs/PERFORMANCE.md` : méthode et derniers relevés.
 
 ## Contraintes
 
@@ -32,6 +33,8 @@ pnpm build        # typecheck + build de production
 pnpm assets       # exporte blender/*.blend en GLB (crée le blockout si le .blend manque)
 pnpm assets --rebuild   # régénère les blockouts et écrase les .blend
 ```
+
+Mesures : `http://localhost:5173/?perf` ou touche à gauche de `1` (voir `docs/PERFORMANCE.md`).
 
 Blender attendu dans `/Applications/Blender.app` ; sinon `BLENDER=/chemin/vers/blender pnpm assets`.
 

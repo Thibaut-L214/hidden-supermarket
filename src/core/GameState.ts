@@ -31,6 +31,7 @@ export type GameEvent =
   | { type: "DOORS_CLOSED" }
   | { type: "EXIT_REQUESTED" }
   | { type: "PARVIS_REACHED" }
+  | { type: "EXIT_CANCELLED" }
   | { type: "RESUME_STORE" }
   | { type: "FAILURE"; reason: string }
   | { type: "ERROR_ACKNOWLEDGED" }
@@ -91,6 +92,9 @@ export function transition(current: GameSnapshot, event: GameEvent): GameSnapsho
       return state === "RETURN" ? inStore("STORE") : null;
     case "EXIT_REQUESTED":
       return state === "STORE" ? inStore("EXIT") : null;
+    case "EXIT_CANCELLED":
+      // Walked back inside before reaching the forecourt: nothing forces the exit.
+      return state === "EXIT" ? inStore("STORE") : null;
     case "PARVIS_REACHED":
       return state === "EXIT" ? inStore("END_MENU") : null;
     case "RESUME_STORE":

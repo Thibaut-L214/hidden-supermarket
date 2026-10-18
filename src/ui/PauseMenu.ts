@@ -12,11 +12,12 @@ export class PauseMenu {
     settings: Settings,
     onResume: () => void,
     onReturn: () => void,
+    onSettingsChange: () => void,
   ) {
     this.resume = root.querySelector<HTMLButtonElement>("#pause-resume")!;
     this.returnButton = root.querySelector<HTMLButtonElement>("#pause-return")!;
     this.returnButton.addEventListener("click", onReturn);
-    this.sync = bindSettingsControls(root, settings);
+    this.sync = bindSettingsControls(root, settings, onSettingsChange);
     this.resume.addEventListener("click", onResume);
   }
 

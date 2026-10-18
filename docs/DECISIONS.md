@@ -19,8 +19,9 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 | TERRACE, REVEAL, CHAIN, RECAP | RETURN | joueur refranchit le seuil |
 | RETURN | STORE | portes refermées après le passage |
 | RETURN | TERRACE | joueur repasse côté terrasse avant la fermeture (portes rouvertes) |
-| STORE | EXIT | porte d'entrée principale |
+| STORE | EXIT | `E` dans la zone de la porte d'entrée |
 | EXIT | END_MENU | arrivée sur le parvis |
+| EXIT | STORE | joueur rentré dans le magasin avant le parvis |
 | END_MENU | STORE | « Revenir dans le magasin » |
 | tout état | ERROR | échec de chargement ou état incohérent |
 | ERROR | SAFE_RETURN → STORE | message affiché, joueur replacé au magasin |
@@ -70,6 +71,21 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - Toit : levée de 4 m et fondu en 3 s ; fondu seul en mode « Réduire les mouvements ». Le toit ne se referme qu'au déchargement du module.
 - Cadrage facultatif vers le hangar à l'entrée en `REVEAL`, interrompu par tout mouvement de souris, désactivé en mode réduit.
 - Lumière : mélange amorti (≈ 1 s) entre éclairage magasin et extérieur (soleil rasant, ciel brumeux, ombres à l'échelle des bâtiments), piloté par la position du joueur et l'ouverture des portes.
+
+## Sortie et fin de visite
+
+- Le parvis fait partie de `store.glb` (petit, contigu à l'entrée) ; la sortie se déclenche par `E` dans `TRIGGER_EXIT`, jamais en marchant par mégarde. Les portes coulissent dans le mur et ne se referment pas sur le joueur.
+- Les bénévoles sont des figures stylisées, immobiles, sur le côté du passage ; aucun ne bloque la sortie. Tracts et stand sans texte ni logo.
+- Menu de fin : liens uniquement vers `l214.com` en HTTPS, ouverts dans un nouvel onglet sur clic explicite ; une adresse inconnue reste `null` et s'affiche « lien à confirmer ». « Terminer la visite » ne demande rien.
+
+## Erreurs
+
+- Toute erreur d'exécution pendant une filière déclenche le retour sûr ; au magasin, elle est journalisée une seule fois par message. Échec du chargement du magasin : bouton « Réessayer ». Perte du contexte WebGL : pause et message.
+
+## Accessibilité (complément)
+
+- `I` ouvre le détail du cartel affiché (texte long, portée, source ou « à compléter ») et fige le temps de jeu pendant la lecture.
+- Chaque son a un sous-titre descriptif (activé par défaut) ; volume 0 = mode sans audio. Qualité réduite : pixel ratio 1, sans ombres.
 
 ## Entrées
 

@@ -6,6 +6,12 @@ export class HUD {
   /** Hints by source; the first non-empty one in insertion order is shown. */
   private readonly hints = new Map<string, string | null>();
   private alertTimer: number | undefined;
+  private current: Caption | null = null;
+
+  /** Caption currently on screen, for the detail panel. */
+  get currentCaption(): Caption | null {
+    return this.current;
+  }
 
   constructor(
     private readonly reticle: HTMLElement,
@@ -39,6 +45,7 @@ export class HUD {
 
   /** Immersive caption (docs/GDD.md §08): one idea, its nature, and its validation status. */
   showCaption(caption: Caption | null): void {
+    this.current = caption;
     if (!caption) {
       this.caption.hidden = true;
       return;

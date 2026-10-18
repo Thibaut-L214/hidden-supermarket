@@ -79,6 +79,8 @@ export class TerraceTransition {
   private module: { chain: ChainId; root: Object3D } | null = null;
   /** Notified when a terrace module enters (root) or leaves (null) the scene. */
   onModuleChange: (chain: ChainId, root: Object3D | null) => void = () => {};
+  /** Notified when the shelf doors start moving (sound cue). */
+  onDoorsMove: () => void = () => {};
 
   constructor(private readonly deps: TerraceTransitionDeps) {
     for (const chain of Object.keys(deps.chains) as ChainId[]) {
@@ -128,7 +130,11 @@ export class TerraceTransition {
 
     const current = game.snapshot.state;
     const inSwing = inSwingZone(p, portal.door.geometry, player.radius);
-    if (portal.door.update(dt, doorTarget(current, portal.side, inSwing))) collisions.refresh();
+    const atRest = portal.door.isOpen || portal.door.isClosed;
+    if (portal.door.update(dt, doorTarget(current, portal.side, inSwing))) {
+      collisions.refresh();
+      if (atRest) this.onDoorsMove();
+    }
     if (current === "OPENING" && portal.door.isOpen) game.send({ type: "DOORS_OPEN" });
     if (current === "RETURN" && portal.door.isClosed) game.send({ type: "DOORS_CLOSED" });
 

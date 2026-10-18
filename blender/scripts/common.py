@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import bmesh
 import bpy
+from mathutils import Matrix
 
 
 def srgb_to_linear(c: float) -> float:
@@ -96,6 +97,44 @@ class MeshBuilder:
         index = self._slot(mat)
         for f in faces:
             face = self.bm.faces.new([verts[i] for i in f])
+            face.material_index = index
+        return self
+
+    def cylinder(
+        self,
+        base: tuple[float, float, float],
+        radius: float,
+        height: float,
+        mat: bpy.types.Material | None = None,
+        segments: int = 14,
+    ) -> "MeshBuilder":
+        """Vertical cylinder standing on `base` (centre of its bottom face)."""
+        x, y, z = base
+        matrix = Matrix.Translation((x, y, z + height / 2))
+        return self._primitive(
+            lambda: bmesh.ops.create_cone(
+                self.bm, cap_ends=True, segments=segments, radius1=radius, radius2=radius, depth=height, matrix=matrix
+            ),
+            mat,
+        )
+
+    def sphere(
+        self,
+        centre: tuple[float, float, float],
+        radius: float,
+        mat: bpy.types.Material | None = None,
+    ) -> "MeshBuilder":
+        matrix = Matrix.Translation(centre)
+        return self._primitive(
+            lambda: bmesh.ops.create_uvsphere(self.bm, u_segments=16, v_segments=10, radius=radius, matrix=matrix),
+            mat,
+        )
+
+    def _primitive(self, create, mat) -> "MeshBuilder":
+        before = set(self.bm.faces)
+        create()
+        index = self._slot(mat)
+        for face in set(self.bm.faces) - before:
             face.material_index = index
         return self
 

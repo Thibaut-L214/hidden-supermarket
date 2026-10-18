@@ -16,6 +16,8 @@ export class AssetError extends Error {
 export class AssetManager {
   private readonly loader = new GLTFLoader();
   private readonly cache = new Map<string, Promise<Object3D>>();
+  /** Load and validation time of each asset, in milliseconds (docs/TECH.md §07). */
+  readonly timings = new Map<string, number>();
 
   load(contract: AssetContract): Promise<Object3D> {
     let pending = this.cache.get(contract.url);
@@ -29,6 +31,7 @@ export class AssetManager {
   }
 
   private async loadUncached(contract: AssetContract): Promise<Object3D> {
+    const started = performance.now();
     let root: Object3D;
     try {
       root = (await this.loader.loadAsync(contract.url)).scene;
@@ -45,6 +48,7 @@ export class AssetManager {
     });
     const errors = checkContract(nodes, contract);
     if (errors.length > 0) throw new AssetError(contract.url, errors.join(" ; "));
+    this.timings.set(contract.url, performance.now() - started);
     return root;
   }
 }

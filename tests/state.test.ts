@@ -76,6 +76,12 @@ describe("transition", () => {
     expect(menu.state).toBe("END_MENU");
     expect(run([{ type: "RESUME_STORE" }], menu).state).toBe("STORE");
   });
+
+  it("lets the player change their mind on the way out", () => {
+    const leaving = run([{ type: "START" }, { type: "EXIT_REQUESTED" }]);
+    expect(run([{ type: "EXIT_CANCELLED" }], leaving).state).toBe("STORE");
+    expect(transition(INITIAL_SNAPSHOT, { type: "EXIT_CANCELLED" })).toBeNull();
+  });
 });
 
 describe("canWalk", () => {
