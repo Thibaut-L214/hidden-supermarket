@@ -93,6 +93,16 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - Export brut dans `blender/out/` (hors dépôt), puis `scripts/optimize-glb.mjs` vers `public/assets/`. KTX2 conditionné à KTX-Software.
 - Son entièrement synthétisé (aucun enregistrement à licencier) : ventilation et nappe musicale au magasin, nappe atténuée et grondement grave après le scan, vent sur la terrasse et le parvis, moteurs spatialisés sur chaque objet `TRUCK_*` en mouvement. Aucun son animal. Contexte audio suspendu pendant la pause.
 
+## Lot 1 : magasin détaillé
+
+- Géométrie procédurale enrichie : gondoles par catégorie générique (Épicerie, Petit-déjeuner, Boissons, Hygiène), produits aux silhouettes variées (boîtes, sachets, briques, bouteilles, bocaux, canettes, pots) avec bandes de couleur et étiquettes vierges, vitrines réfrigérées à portes vitrées, faux plafond, gaines, caisses détaillées, chariots et paniers, encadrement d'entrée, plinthes et bandeau.
+- Rayon œufs vedette : boîtes à couvercle nervuré et pastille vierge, deux boîtes ouvertes par vantail à hauteur des yeux (œufs bruns et crème), rail de prix, bandeau lumineux, charnières visibles, pictogramme `PICTO_SCAN_<FILIÈRE>` (contrat).
+- Chanfreins par modificateur Bevel (arêtes > 50°), appliqués à l'export ; pas de chanfrein sur les marchandises (invisibles à distance de rayon, coûteux en triangles).
+- Occlusion ambiante bakée par Cycles dans une couleur de sommet (`AO`, par point, exportée en `COLOR_0`, quantifiée sur 8 bits), adoucie à 75 %. Les objets marqués `ao_skip` (vitres, luminaires, joints de sol, ossature du plafond) n'y participent pas.
+- Sols, plafond et faces intérieures des murs maillés en grille (environ 0,4–0,5 m) pour que l'occlusion par sommet montre les ombres de contact.
+- Faces jamais visibles des marchandises (dessous, dos côté panneau central) supprimées.
+- Les enseignes d'allées `AISLE_SIGN_*` portent leur libellé en extra glTF (`label`) ; le texte est dessiné à l'exécution, des deux côtés.
+
 ## Entrées
 
 - Touches lues via `KeyboardEvent.code` : ZQSD (AZERTY) et WASD (QWERTY) correspondent aux mêmes codes physiques.

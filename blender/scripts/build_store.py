@@ -18,8 +18,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+import math  # noqa: E402
+
+import bpy  # noqa: E402
+import store_props as props  # noqa: E402
 from common import (  # noqa: E402
     MeshBuilder,
+    bevel,
     box,
     empty,
     helper_volume,
@@ -66,14 +71,60 @@ def materials() -> None:
     M["skin_a"] = material("M_SKIN_A", "#C69C7B", roughness=0.7)
     M["skin_b"] = material("M_SKIN_B", "#8D5E43", roughness=0.7)
     M["skin_c"] = material("M_SKIN_C", "#E3C1A0", roughness=0.7)
-    M["prod_a"] = material("M_PRODUCT_A", "#D9CBB0", roughness=0.7)
-    M["prod_b"] = material("M_PRODUCT_B", "#B8C9B4", roughness=0.7)
-    M["prod_c"] = material("M_PRODUCT_C", "#E3D9C6", roughness=0.7)
+    M["egg_brown"] = material("M_EGG_BROWN", "#E2C9A6", roughness=0.55)
+    M["egg_cream"] = material("M_EGG_CREAM", "#F2EBDD", roughness=0.55)
+    M["sticker"] = material("M_CARTON_STICKER", "#F6F1E4", roughness=0.6)
+    M["shelf_light"] = material("M_SHELF_LIGHT", "#FFFFFF", emission="#FFF4E2", emission_strength=1.4)
+    M["skirting"] = material("M_SKIRTING", "#B9B2A3", roughness=0.6)
+    props.materials()
+
+
+def inner_walls(root) -> None:
+    """Gridded inner faces just inside the wall boxes, skirting and a soft accent band."""
+    g = MeshBuilder(recalc_normals=False)
+    e = 0.003
+    hx, hy, h = HALF_X, HALF_Y, HEIGHT
+
+    def cells(length: float) -> int:
+        return max(1, round(length / 0.5))
+
+    # North (faces -Y), around the eggs opening.
+    for x0, x1, z0, z1 in ((-hx, -OPENING_HALF_W, 0, h), (OPENING_HALF_W, hx, 0, h), (-OPENING_HALF_W, OPENING_HALF_W, OPENING_H, h)):
+        g.grid((x0, hy - e, z0), (x1 - x0, 0, 0), (0, 0, z1 - z0), (cells(x1 - x0), cells(z1 - z0)), M["wall"])
+    # South (faces +Y), around the entrance.
+    for x0, x1, z0, z1 in ((-hx, -ENTRANCE_HALF_W, 0, h), (ENTRANCE_HALF_W, hx, 0, h), (-ENTRANCE_HALF_W, ENTRANCE_HALF_W, 2.6, h)):
+        g.grid((x0, -hy + e, z0), (0, 0, z1 - z0), (x1 - x0, 0, 0), (cells(z1 - z0), cells(x1 - x0)), M["wall"])
+    # East (faces -X) and west (faces +X).
+    g.grid((hx - e, -hy, 0), (0, 0, h), (0, 2 * hy, 0), (cells(h), cells(2 * hy)), M["wall"])
+    g.grid((-hx + e, -hy, 0), (0, 2 * hy, 0), (0, 0, h), (cells(2 * hy), cells(h)), M["wall"])
+    g.build("STORE_WALLS_INNER", parent=root)
+
+    trim = MeshBuilder()
+    for z0, z1, mat in ((0.0, 0.1, M["skirting"]), (3.05, 3.2, M["accent"])):
+        # Openings interrupt the trim only below their lintel.
+        for x0, x1 in ((-hx, -OPENING_HALF_W), (OPENING_HALF_W, hx)):
+            trim.box((x0, hy - 0.02, z0), (x1, hy, z1), mat)
+        if z0 > OPENING_H:
+            trim.box((-OPENING_HALF_W, hy - 0.02, z0), (OPENING_HALF_W, hy, z1), mat)
+        for x0, x1 in ((-hx, -ENTRANCE_HALF_W), (ENTRANCE_HALF_W, hx)):
+            trim.box((x0, -hy, z0), (x1, -hy + 0.02, z1), mat)
+        if z0 > 2.6:
+            trim.box((-ENTRANCE_HALF_W, -hy, z0), (ENTRANCE_HALF_W, -hy + 0.02, z1), mat)
+        trim.box((hx - 0.02, -hy, z0), (hx, hy, z1), mat)
+        trim.box((-hx, -hy, z0), (-hx + 0.02, hy, z1), mat)
+    bevel(trim.build("STORE_WALL_TRIM", parent=root), 0.004)
 
 
 def shell(root) -> None:
-    box("STORE_FLOOR", (-HALF_X, -HALF_Y, -0.1), (HALF_X, HALF_Y, 0.0), M["floor"], root)
-    box("STORE_CEILING", (-HALF_X, -HALF_Y, HEIGHT), (HALF_X, HALF_Y, HEIGHT + 0.1), M["ceiling"], root)
+    # Floor and ceiling as fine grids: per-vertex occlusion needs vertices to show contact
+    # shadows under the furniture.
+    MeshBuilder(recalc_normals=False).grid(
+        (-HALF_X, -HALF_Y, 0.0), (2 * HALF_X, 0, 0), (0, 2 * HALF_Y, 0), (60, 45), M["floor"]
+    ).build("STORE_FLOOR", parent=root)
+    MeshBuilder(recalc_normals=False).grid(
+        (-HALF_X, -HALF_Y, HEIGHT), (0, 2 * HALF_Y, 0), (2 * HALF_X, 0, 0), (36, 48), M["ceiling"]
+    ).build("STORE_CEILING", parent=root)
+    inner_walls(root)
 
     # Walls start below floor level so no slit shows where they meet the plinth outside.
     walls = {
@@ -93,11 +144,20 @@ def shell(root) -> None:
         if "LINTEL" not in key:
             helper_volume(box(f"COL_WALL_{key}", lo, hi, None, root))
 
-    lights = MeshBuilder()
+    lights, frames = MeshBuilder(), MeshBuilder()
     for x in range(-9, 10, 3):
         for y in range(-6, 7, 3):
-            lights.box((x - 0.6, y - 0.3, HEIGHT - 0.04), (x + 0.6, y + 0.3, HEIGHT), M["light"])
-    lights.build("STORE_LIGHT_PANELS", parent=root)
+            lights.box((x - 0.6, y - 0.3, HEIGHT - 0.04), (x + 0.6, y + 0.3, HEIGHT - 0.02), M["light"])
+            for x0, x1, y0, y1 in (
+                (x - 0.63, x + 0.63, y - 0.33, y - 0.3), (x - 0.63, x + 0.63, y + 0.3, y + 0.33),
+                (x - 0.63, x - 0.6, y - 0.3, y + 0.3), (x + 0.6, x + 0.63, y - 0.3, y + 0.3),
+            ):
+                frames.box((x0, y0, HEIGHT - 0.05), (x1, y1, HEIGHT - 0.02), props.M["metal"])
+    # Flush with the ceiling: excluded from the occlusion bake, or they would leave dark halos.
+    lights.build("STORE_LIGHT_PANELS", parent=root)["ao_skip"] = True
+    frames.build("STORE_LIGHT_FRAMES", parent=root)["ao_skip"] = True
+    props.ceiling(HALF_X, HALF_Y, HEIGHT, root)
+    props.entrance(HALF_Y, WALL, ENTRANCE_HALF_W, root)
 
     # Two sliding leaves inside the wall thickness; each slides into the wall (pocket door).
     for side, (x0, x1) in (("L", (-ENTRANCE_HALF_W, 0.0)), ("R", (0.0, ENTRANCE_HALF_W))):
@@ -118,55 +178,48 @@ def shell(root) -> None:
     for j in range(-3, 4):
         y = j * 2.4
         joints.box((-HALF_X, y - 0.006, 0.0), (HALF_X, y + 0.006, 0.002), M["joint"])
-    joints.build("STORE_FLOOR_JOINTS", parent=root)
+    joints.build("STORE_FLOOR_JOINTS", parent=root)["ao_skip"] = True
 
     # Two checkout counters by the entrance, clear of the central walkway.
-    for side, (x0, x1) in (("L", (-7.0, -4.6)), ("R", (4.6, 7.0))):
-        c = MeshBuilder()
-        c.box((x0, -6.4, 0.0), (x1, -5.6, 0.85), M["shelf"])
-        c.box((x0, -6.3, 0.85), (x1 - 0.6, -5.7, 0.9), M["belt"])
-        c.box((x1 - 0.5, -6.25, 0.85), (x1 - 0.15, -5.95, 1.15), M["belt"])
-        c.build(f"STORE_CHECKOUT_{side}", parent=root)
-        helper_volume(box(f"COL_CHECKOUT_{side}", (x0, -6.4, 0.0), (x1, -5.6, 1.15), None, root))
-
-
-def gondola_module(builder: MeshBuilder, x0: float, y0: float, length: float, depth: float, height: float) -> None:
-    """Double-sided generic gondola: frame, shelves and stylised product blocks."""
-    x1, y1 = x0 + depth, y0 + length
-    builder.box((x0 + depth / 2 - 0.03, y0, 0.0), (x0 + depth / 2 + 0.03, y1, height), M["shelf"])
-    builder.box((x0, y0, 0.0), (x1, y1, 0.12), M["accent"])
-    products = (M["prod_a"], M["prod_b"], M["prod_c"])
-    heights = (0.3, 0.22, 0.26, 0.18)
-    for level, z in enumerate((0.12, 0.55, 0.98, 1.41)):
-        builder.box((x0, y0, z), (x1, y1, z + 0.03), M["shelf"])
-        # Blank price rails on both faces: commercial look, no real prices or brands.
-        builder.box((x0 - 0.01, y0, z - 0.02), (x0 + 0.01, y1, z + 0.05), M["rail_label"])
-        builder.box((x1 - 0.01, y0, z - 0.02), (x1 + 0.01, y1, z + 0.05), M["rail_label"])
-        for side in (0, 1):
-            sx0 = x0 + 0.04 if side == 0 else x0 + depth / 2 + 0.06
-            for i in range(int(length / 0.3)):
-                py = y0 + 0.03 + i * 0.3
-                mat = products[(i + level + side) % 3]
-                h = heights[(i * 3 + level + side) % 4]
-                builder.box((sx0, py, z + 0.03), (sx0 + depth / 2 - 0.1, py + 0.24, z + 0.03 + h), mat)
+    props.checkout("STORE_CHECKOUT_L", -7.0, -4.6, root)
+    props.checkout("STORE_CHECKOUT_R", 4.6, 7.0, root)
+    props.carts_and_baskets(root)
 
 
 def generic_shelving(root) -> None:
-    depth, height, module_len = 0.9, 1.8, 1.25
-    y_start, modules = -4.0, 7
-    for row, x in enumerate((-7.95, -4.95, 4.05, 7.05)):
-        b = MeshBuilder()
-        for m in range(modules):
-            gondola_module(b, 0.0, m * module_len, module_len, depth, height)
-        # End caps and a blank header at both ends of the gondola run.
-        run = modules * module_len
-        for y0, y1 in ((-0.06, 0.0), (run, run + 0.06)):
-            b.box((0.0, y0, 0.0), (depth, y1, height + 0.05), M["accent"])
-            b.box((0.05, y0 - 0.01, height + 0.12), (depth - 0.05, y1 + 0.01, height + 0.42), M["sign"])
-        b.build(f"SHELF_GENERIC_{row + 1:02d}", (x, y_start, 0.0), root)
-        helper_volume(
-            box(f"COL_SHELF_GENERIC_{row + 1:02d}", (x, y_start, 0), (x + depth, y_start + modules * module_len, height), None, root)
-        )
+    """Four gondola runs with generic aisle categories and their hanging signs."""
+    rows = ((-7.95, "Épicerie"), (-4.95, "Petit-déjeuner"), (4.05, "Boissons"), (7.05, "Hygiène"))
+    for i, (x, aisle) in enumerate(rows, start=1):
+        props.gondola(f"SHELF_GENERIC_{i:02d}", x, -4.0, 7, aisle, root, M["accent"], M["sign"])
+        sign_name = f"AISLE_SIGN_{i:02d}"
+        props.aisle_sign(sign_name, x + 0.45, -4.0 + 7 * 1.25 / 2, root, M["sign"])
+        # The label is drawn at runtime from this extra (glTF extras → userData.label).
+        bpy.data.objects[sign_name]["label"] = aisle
+    props.fridge_run("FRIDGE_W", -HALF_X, 1, -5.0, 8, root)
+    props.fridge_run("FRIDGE_E", HALF_X, -1, -5.0, 8, root)
+
+
+def carton(b: MeshBuilder, x0: float, x1: float, y0: float, y1: float, z: float, mat, open_eggs: MeshBuilder | None) -> None:
+    """Six-egg carton, unbranded: tray, ribbed lid and a blank sticker. When `open_eggs` is
+    given, the lid stands open towards the wall and six eggs show in the tray."""
+    tray = 0.055
+    b.box((x0, y0, z), (x1, y1, z + tray), mat)
+    if open_eggs is None:
+        b.box((x0 + 0.004, y0 + 0.004, z + tray), (x1 - 0.004, y1 - 0.004, z + 0.1), mat)
+        for k in (1, 2):
+            rx = x0 + k * (x1 - x0) / 3
+            b.box((rx - 0.006, y0 + 0.02, z + 0.1), (rx + 0.006, y1 - 0.02, z + 0.11), mat)
+        b.box((x0 + 0.04, y0 - 0.002, z + 0.062), (x1 - 0.04, y0, z + 0.092), M["sticker"])
+        return
+    cx = (x0 + x1) / 2
+    lid = (x1 - x0 - 0.008, y1 - y0 - 0.008, 0.045)
+    b.oriented_box((cx, (y0 + y1) / 2, z + tray + 0.022), lid, mat, rot_x=math.radians(-100), pivot=(cx, y1 - 0.004, z + tray))
+    for i in range(3):
+        for j in range(2):
+            ex = x0 + (i + 0.5) * (x1 - x0) / 3
+            ey = y0 + 0.04 + j * (y1 - y0 - 0.08)
+            egg = M["egg_brown"] if (i + j) % 3 else M["egg_cream"]
+            open_eggs.ellipsoid((ex, ey, z + tray + 0.012), (0.021, 0.021, 0.029), egg)
 
 
 def door_half(hinge, side: int):
@@ -183,27 +236,40 @@ def door_half(hinge, side: int):
         lo, hi = sorted((a * inward, b * inward))
         return lo, hi
 
-    b = MeshBuilder()
-    # Back panel, outer side panel, top, plinth (accent) and four shelves.
+    frame, goods, eggs = MeshBuilder(), MeshBuilder(), MeshBuilder()
     bx0, bx1 = span(0.0, width)
-    b.box((bx0, SHELF_DEPTH - 0.04, 0.0), (bx1, SHELF_DEPTH, h), M["shelf"])
+    # Back panel, outer side panel, canopy with a warm light strip, recessed kick plate.
+    frame.box((bx0, SHELF_DEPTH - 0.03, 0.12), (bx1, SHELF_DEPTH, h - 0.06), M["shelf"])
     sx0, sx1 = span(0.0, 0.04)
-    b.box((sx0, 0.0, 0.0), (sx1, SHELF_DEPTH, h), M["shelf"])
-    b.box((bx0, 0.0, h - 0.04), (bx1, SHELF_DEPTH, h), M["shelf"])
-    b.box((bx0, 0.0, 0.0), (bx1, SHELF_DEPTH, 0.12), M["accent"])
-    for z in (0.12, 0.6, 1.08, 1.56):
-        b.box((bx0, 0.0, z), (bx1, SHELF_DEPTH - 0.04, z + 0.03), M["shelf"])
-        # Blank price rail along the shelf front.
-        b.box((bx0, -0.01, z - 0.02), (bx1, 0.01, z + 0.05), M["rail_label"])
-        # Egg cartons: base and slightly narrower lid, two stacked, unbranded.
+    frame.box((sx0, 0.0, 0.0), (sx1, SHELF_DEPTH, h), M["shelf"])
+    frame.box((bx0, -0.05, h - 0.08), (bx1, SHELF_DEPTH, h), M["accent"])
+    frame.box((bx0, 0.0, h - 0.1), (bx1, 0.04, h - 0.08), M["shelf_light"])
+    frame.box((bx0, 0.03, 0.0), (bx1, SHELF_DEPTH, 0.12), M["accent"])
+    # Hinge barrel on the pivot, with plates.
+    frame.cylinder((0.0, 0.0, 0.1), 0.02, h - 0.2, props.M["metal_dark"], segments=10)
+    for z in (0.25, h / 2, h - 0.35):
+        px0, px1 = span(0.0, 0.08)
+        frame.box((px0, -0.005, z), (px1, 0.005, z + 0.12), props.M["metal_dark"])
+
+    levels = (0.12, 0.6, 1.08, 1.56)
+    for level, z in enumerate(levels):
+        frame.box((bx0, 0.0, z), (bx1, SHELF_DEPTH - 0.03, z + 0.025), M["shelf"])
+        frame.box((bx0, -0.012, z - 0.035), (bx1, 0.012, z + 0.03), props.M["rail"])
+        for i in range(5):
+            tx0, tx1 = span(0.12 + i * 0.28, 0.2 + i * 0.28)
+            frame.box((tx0, -0.016, z - 0.03), (tx1, -0.012, z + 0.02), props.M["tag"])
         for i in range(5):
             cx0, cx1 = span(0.08 + i * 0.28, 0.08 + i * 0.28 + 0.24)
-            mat = M["carton"] if (i + int(z * 10)) % 2 == 0 else M["carton_alt"]
-            for k in range(2):
-                zb = z + 0.03 + k * 0.17
-                b.box((cx0, 0.06, zb), (cx1, 0.36, zb + 0.08), mat)
-                b.box((cx0 + 0.01, 0.07, zb + 0.08), (cx1 - 0.01, 0.35, zb + 0.15), mat)
-    door = b.build(f"DOOR_EGGS_{name}", parent=hinge)
+            mat = M["carton"] if (i + level) % 2 == 0 else M["carton_alt"]
+            # Eye-level shelf: two open cartons per door show the eggs.
+            is_open = level == 2 and i in (1, 3)
+            carton(goods, cx0, cx1, 0.05, 0.33, z + 0.025, mat, eggs if is_open else None)
+            if not is_open:
+                carton(goods, cx0, cx1, 0.05, 0.33, z + 0.025 + 0.12, mat, None)
+
+    door = bevel(frame.build(f"DOOR_EGGS_{name}", parent=hinge), 0.006)
+    bevel(goods.build(f"DOOR_EGGS_{name}_GOODS", parent=door), 0.003)
+    eggs.build(f"DOOR_EGGS_{name}_EGGS", parent=door)
     collider = MeshBuilder().box((bx0, 0.0, 0.0), (bx1, SHELF_DEPTH, h)).build(f"COL_DOOR_EGGS_{name}", parent=door)
     helper_volume(collider)
     return door
@@ -229,7 +295,9 @@ def eggs_shelf(root) -> None:
     # The terrace module's root is placed on this anchor (back face of the wall, floor level).
     empty("ANCHOR_EGGS_TERRACE", (0.0, SHELF_DEPTH + WALL, 0.0), shelf)
     # Sign panel: the label itself is drawn at runtime (docs/DECISIONS.md, signage).
-    box("SIGN_EGGS", (-0.9, HALF_Y - 0.03, 2.45), (0.9, HALF_Y, 2.95), M["sign"], shelf)
+    bevel(box("SIGN_EGGS", (-0.9, HALF_Y - 0.03, 2.45), (0.9, HALF_Y, 2.95), M["sign"], shelf), 0.008)
+    # « Scannable » pictogram next to the sign (docs/GDD.md §06.0), drawn at runtime too.
+    bevel(box("PICTO_SCAN_EGGS", (1.0, HALF_Y - 0.03, 2.5), (1.4, HALF_Y, 2.9), M["sign"], shelf), 0.008)
 
 
 def volunteer(name: str, x: float, y: float, facing_x: float, clothes, skin, root) -> None:

@@ -11,9 +11,11 @@ Conventions (see docs/TECH.md §03 and docs/DECISIONS.md):
 
 from __future__ import annotations
 
+import math
+
 import bmesh
 import bpy
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 
 
 def srgb_to_linear(c: float) -> float:
@@ -54,6 +56,14 @@ def material(
     return mat
 
 
+def glass(name: str, color: str, alpha: float = 0.3) -> bpy.types.Material:
+    """Blended, see-through material (exported with alphaMode BLEND)."""
+    mat = material(name, color, roughness=0.08, metallic=0.0)
+    mat.node_tree.nodes["Principled BSDF"].inputs["Alpha"].default_value = alpha
+    mat.surface_render_method = "BLENDED"
+    return mat
+
+
 def empty(
     name: str,
     location: tuple[float, float, float] = (0.0, 0.0, 0.0),
@@ -75,16 +85,20 @@ class MeshBuilder:
     origin sits on a hinge can be built directly around that pivot.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, recalc_normals: bool = True) -> None:
         self.bm = bmesh.new()
         self.materials: list[bpy.types.Material] = []
+        # Open surfaces (grids) keep the orientation they were built with.
+        self.recalc_normals = recalc_normals
 
     def box(
         self,
         min_corner: tuple[float, float, float],
         max_corner: tuple[float, float, float],
         mat: bpy.types.Material | None = None,
+        skip: tuple[str, ...] = (),
     ) -> "MeshBuilder":
+        """Axis-aligned box. `skip` drops faces that can never be seen ("-z", "+x", …)."""
         (x0, y0, z0), (x1, y1, z1) = min_corner, max_corner
         verts = [
             self.bm.verts.new(v)
@@ -93,11 +107,26 @@ class MeshBuilder:
                 (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1),
             )
         ]
-        faces = ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7))
+        faces = {
+            "-z": (0, 3, 2, 1), "+z": (4, 5, 6, 7), "-y": (0, 1, 5, 4),
+            "+x": (1, 2, 6, 5), "+y": (2, 3, 7, 6), "-x": (3, 0, 4, 7),
+        }
         index = self._slot(mat)
-        for f in faces:
+        for key, f in faces.items():
+            if key in skip:
+                continue
             face = self.bm.faces.new([verts[i] for i in f])
             face.material_index = index
+        for vert in verts:
+            if not vert.link_faces:
+                self.bm.verts.remove(vert)
+        return self
+
+    def drop_bottom_caps(self) -> "MeshBuilder":
+        """Removes downward n-gon caps (bases resting on a surface, never seen)."""
+        self.bm.normal_update()
+        caps = [f for f in self.bm.faces if len(f.verts) > 4 and f.normal.z < -0.99]
+        bmesh.ops.delete(self.bm, geom=caps, context="FACES_ONLY")
         return self
 
     def cylinder(
@@ -129,6 +158,99 @@ class MeshBuilder:
             lambda: bmesh.ops.create_uvsphere(self.bm, u_segments=16, v_segments=10, radius=radius, matrix=matrix),
             mat,
         )
+
+    def cylinder_along(
+        self,
+        centre: tuple[float, float, float],
+        axis: str,
+        radius: float,
+        length: float,
+        mat: bpy.types.Material | None = None,
+        segments: int = 12,
+    ) -> "MeshBuilder":
+        """Cylinder centred on `centre`, its length along the X or Y axis (rollers, ducts, bars)."""
+        turn = Matrix.Rotation(math.pi / 2, 4, "Y") if axis == "X" else Matrix.Rotation(-math.pi / 2, 4, "X")
+        matrix = Matrix.Translation(centre) @ turn
+        return self._primitive(
+            lambda: bmesh.ops.create_cone(
+                self.bm, cap_ends=True, segments=segments, radius1=radius, radius2=radius, depth=length, matrix=matrix
+            ),
+            mat,
+            smooth_sides=True,
+        )
+
+    def frustum(
+        self,
+        base: tuple[float, float, float],
+        r_bottom: float,
+        r_top: float,
+        height: float,
+        mat: bpy.types.Material | None = None,
+        segments: int = 12,
+    ) -> "MeshBuilder":
+        """Truncated cone standing on `base` (bottle shoulders, lids)."""
+        x, y, z = base
+        matrix = Matrix.Translation((x, y, z + height / 2))
+        return self._primitive(
+            lambda: bmesh.ops.create_cone(
+                self.bm, cap_ends=True, segments=segments, radius1=r_bottom, radius2=r_top, depth=height, matrix=matrix
+            ),
+            mat,
+            smooth_sides=True,
+        )
+
+    def ellipsoid(
+        self,
+        centre: tuple[float, float, float],
+        radii: tuple[float, float, float],
+        mat: bpy.types.Material | None = None,
+        u: int = 10,
+        v: int = 7,
+    ) -> "MeshBuilder":
+        matrix = Matrix.Translation(centre) @ Matrix.Diagonal((*radii, 1.0))
+        return self._primitive(
+            lambda: bmesh.ops.create_uvsphere(self.bm, u_segments=u, v_segments=v, radius=1.0, matrix=matrix),
+            mat,
+            smooth_sides=True,
+        )
+
+    def oriented_box(
+        self,
+        centre: tuple[float, float, float],
+        size: tuple[float, float, float],
+        mat: bpy.types.Material | None = None,
+        rot_x: float = 0.0,
+        rot_z: float = 0.0,
+        pivot: tuple[float, float, float] | None = None,
+    ) -> "MeshBuilder":
+        """Box of `size` rotated about X then Z (radians), around `pivot` (default: its centre)."""
+        pivot = pivot or centre
+        offset = Vector(centre) - Vector(pivot)
+        rotation = Matrix.Rotation(rot_z, 4, "Z") @ Matrix.Rotation(rot_x, 4, "X")
+        matrix = Matrix.Translation(pivot) @ rotation @ Matrix.Translation(offset) @ Matrix.Diagonal((*size, 1.0))
+        return self._primitive(lambda: bmesh.ops.create_cube(self.bm, size=1.0, matrix=matrix), mat)
+
+    def grid(
+        self,
+        origin: tuple[float, float, float],
+        u: tuple[float, float, float],
+        v: tuple[float, float, float],
+        cells: tuple[int, int],
+        mat: bpy.types.Material | None = None,
+    ) -> "MeshBuilder":
+        """Flat quad grid spanning origin + s·u + t·v; faces point along u × v.
+
+        Large surfaces need vertices for per-vertex ambient occlusion to show contact shadows.
+        """
+        nu, nv = cells
+        o, du, dv = Vector(origin), Vector(u) / nu, Vector(v) / nv
+        verts = [[self.bm.verts.new(o + du * i + dv * j) for j in range(nv + 1)] for i in range(nu + 1)]
+        index = self._slot(mat)
+        for i in range(nu):
+            for j in range(nv):
+                face = self.bm.faces.new((verts[i][j], verts[i + 1][j], verts[i + 1][j + 1], verts[i][j + 1]))
+                face.material_index = index
+        return self
 
     def cone(
         self,
@@ -170,12 +292,15 @@ class MeshBuilder:
             self.bm.faces.new(verts).material_index = index
         return self
 
-    def _primitive(self, create, mat) -> "MeshBuilder":
+    def _primitive(self, create, mat, smooth_sides: bool = False) -> "MeshBuilder":
         before = set(self.bm.faces)
         create()
         index = self._slot(mat)
         for face in set(self.bm.faces) - before:
             face.material_index = index
+            # Round sides shade smooth (shared vertices); caps (n-gons) stay flat.
+            if smooth_sides and len(face.verts) == 4:
+                face.smooth = True
         return self
 
     def build(
@@ -185,7 +310,8 @@ class MeshBuilder:
         parent: bpy.types.Object | None = None,
     ) -> bpy.types.Object:
         mesh = bpy.data.meshes.new(f"ME_{name}")  # distinct from node names in glTF
-        bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces[:])
+        if self.recalc_normals:
+            bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces[:])
         self.bm.normal_update()
         self.bm.to_mesh(mesh)
         self.bm.free()
@@ -225,6 +351,69 @@ def helper_volume(obj: bpy.types.Object) -> bpy.types.Object:
     return obj
 
 
+def bevel(obj: bpy.types.Object, width: float = 0.008, segments: int = 1) -> bpy.types.Object:
+    """Non-destructive chamfer on edges sharper than 50° (box edges, caps; not the facets of
+    coarse cylinders); applied at export with the other modifiers."""
+    mod = obj.modifiers.new("Chamfer", "BEVEL")
+    mod.width = width
+    mod.segments = segments
+    mod.limit_method = "ANGLE"
+    mod.angle_limit = math.radians(50)
+    mod.use_clamp_overlap = True
+    return obj
+
+
+AO_ATTRIBUTE = "AO"
+
+
+def bake_ambient_occlusion(samples: int = 24, distance: float = 0.8, strength: float = 0.75) -> int:
+    """Bakes ambient occlusion into a linear colour attribute on every rendered mesh.
+
+    Modifiers are applied first (the bake needs final topology). The .blend on disk keeps them:
+    this runs on the in-memory copy just before export. `strength` < 1 softens the result to
+    keep the stylised, bright look (docs/DA.md §04). Returns the number of meshes baked.
+    """
+    scene = bpy.context.scene
+    scene.render.engine = "CYCLES"
+    scene.cycles.device = "CPU"
+    scene.cycles.samples = samples
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("World")
+    scene.world.light_settings.distance = distance
+
+    # Glass neither receives nor casts occlusion (it would darken what stands behind it).
+    skipped = [o for o in scene.objects if o.get("ao_skip") and not o.hide_render]
+    for obj in skipped:
+        obj.hide_render = True
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    targets = [o for o in scene.objects if o.type == "MESH" and not o.hide_render]
+    for obj in targets:
+        mesh = bpy.data.meshes.new_from_object(obj.evaluated_get(depsgraph))
+        mesh.name = obj.data.name
+        obj.modifiers.clear()
+        obj.data = mesh
+        # Per point, not per face corner: neighbouring faces can share vertices in the GLB.
+        attr = mesh.color_attributes.new(AO_ATTRIBUTE, "FLOAT_COLOR", "POINT")
+        mesh.color_attributes.active_color = attr
+        mesh.color_attributes.render_color_index = mesh.color_attributes.find(AO_ATTRIBUTE)
+
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in targets:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = targets[0]
+    bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
+
+    for obj in targets:
+        data = obj.data.color_attributes[AO_ATTRIBUTE].data
+        for item in data:
+            ao = item.color[0]
+            v = 1.0 - strength * (1.0 - ao)
+            item.color = (v, v, v, 1.0)
+    for obj in skipped:
+        obj.hide_render = False
+    return len(targets)
+
+
 def save_blend(path: str) -> None:
     bpy.ops.wm.save_as_mainfile(filepath=path)
 
@@ -240,6 +429,9 @@ def export_glb(path: str) -> None:
         export_lights=False,
         export_animations=False,
         export_materials="EXPORT",
+        # Baked ambient occlusion travels as COLOR_0 (three.js multiplies it into the albedo).
+        export_vertex_color="NAME",
+        export_vertex_color_name=AO_ATTRIBUTE,
         use_selection=False,
         use_visible=False,
     )

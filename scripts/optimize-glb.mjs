@@ -8,7 +8,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { Logger, NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, EXTMeshoptCompression } from "@gltf-transform/extensions";
-import { dedup, prune, reorder, weld } from "@gltf-transform/functions";
+import { dedup, prune, quantize, reorder, weld } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
 
 const [input, output] = process.argv.slice(2);
@@ -29,6 +29,8 @@ await doc.transform(
   dedup(),
   prune({ keepLeaves: true, keepExtras: true }),
   weld(),
+  // Baked occlusion (COLOR_0) on 8 bits is plenty; positions are left alone (see above).
+  quantize({ pattern: /^COLOR_0$/, quantizeColor: 8 }),
   reorder({ encoder: MeshoptEncoder }),
 );
 doc

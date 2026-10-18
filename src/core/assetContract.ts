@@ -29,6 +29,8 @@ export function shelfNodes(chain: ChainId) {
     entry: `TRIGGER_${id}_ENTRY`,
     terraceAnchor: `ANCHOR_${id}_TERRACE`,
     sign: `SIGN_${id}`,
+    /** « Scannable » pictogram beside the sign (docs/GDD.md §06.0). */
+    picto: `PICTO_SCAN_${id}`,
   } as const;
 }
 
