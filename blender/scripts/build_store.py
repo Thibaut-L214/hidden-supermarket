@@ -21,6 +21,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 import math  # noqa: E402
 
 import bpy  # noqa: E402
+import landscape_props as land  # noqa: E402
+import parvis_props as outside  # noqa: E402
 import store_props as props  # noqa: E402
 from common import (  # noqa: E402
     MeshBuilder,
@@ -60,23 +62,14 @@ def materials() -> None:
     M["paving"] = material("M_PARVIS_PAVING", "#C4B9A6", roughness=0.85)
     M["grass"] = material("M_PARVIS_GRASS", "#A3A885", roughness=1.0)
     M["planter"] = material("M_PARVIS_PLANTER", "#B7A58E", roughness=0.9)
-    M["trunk"] = material("M_TREE_TRUNK", "#7A6650", roughness=0.9)
-    M["foliage"] = material("M_TREE_FOLIAGE", "#8FA77A", roughness=0.9)
-    M["stand"] = material("M_STAND", "#E9E2D3", roughness=0.8)
-    M["leaflet"] = material("M_LEAFLET", "#FBFAF6", roughness=0.7)
-    M["trousers"] = material("M_TROUSERS", "#4F5660", roughness=0.9)
-    M["clothes_teal"] = material("M_CLOTHES_TEAL", "#5E8C84", roughness=0.9)
-    M["clothes_terracotta"] = material("M_CLOTHES_TERRACOTTA", "#B8735A", roughness=0.9)
-    M["clothes_mustard"] = material("M_CLOTHES_MUSTARD", "#C9A548", roughness=0.9)
-    M["skin_a"] = material("M_SKIN_A", "#C69C7B", roughness=0.7)
-    M["skin_b"] = material("M_SKIN_B", "#8D5E43", roughness=0.7)
-    M["skin_c"] = material("M_SKIN_C", "#E3C1A0", roughness=0.7)
     M["egg_brown"] = material("M_EGG_BROWN", "#E2C9A6", roughness=0.55)
     M["egg_cream"] = material("M_EGG_CREAM", "#F2EBDD", roughness=0.55)
     M["sticker"] = material("M_CARTON_STICKER", "#F6F1E4", roughness=0.6)
     M["shelf_light"] = material("M_SHELF_LIGHT", "#FFFFFF", emission="#FFF4E2", emission_strength=1.4)
     M["skirting"] = material("M_SKIRTING", "#B9B2A3", roughness=0.6)
     props.materials()
+    outside.materials()
+    land.materials()
 
 
 def inner_walls(root) -> None:
@@ -300,18 +293,6 @@ def eggs_shelf(root) -> None:
     bevel(box("PICTO_SCAN_EGGS", (1.0, HALF_Y - 0.03, 2.5), (1.4, HALF_Y, 2.9), M["sign"], shelf), 0.008)
 
 
-def volunteer(name: str, x: float, y: float, facing_x: float, clothes, skin, root) -> None:
-    """Stylised, calm standing figure holding a leaflet (docs/DA.md §04, docs/GDD.md §09)."""
-    b = MeshBuilder()
-    b.cylinder((x, y, 0.0), 0.17, 0.85, M["trousers"])
-    b.cylinder((x, y, 0.85), 0.24, 0.65, clothes)
-    b.sphere((x, y, 1.72), 0.14, skin)
-    hand_x = x + facing_x * 0.3
-    b.box((hand_x - 0.1, y - 0.15, 1.05), (hand_x + 0.1, y + 0.15, 1.07), M["leaflet"])
-    b.build(name, parent=root)
-    helper_volume(box(f"COL_{name}", (x - 0.3, y - 0.3, 0.0), (x + 0.3, y + 0.3, 1.8), None, root))
-
-
 def parvis(root) -> None:
     """Forecourt outside the entrance (docs/GDD.md §03.10, §09). Volunteers stand aside the
     walkway; none blocks the way out. No logo, no organisation name: leaflets are blank."""
@@ -319,6 +300,10 @@ def parvis(root) -> None:
     plaza = empty("PARVIS_ROOT", (0.0, 0.0, 0.0), root)
     box("PARVIS_GROUND", (-40.0, -80.0, -0.7), (40.0, south, -0.62), M["grass"], plaza)
     box("PARVIS_SLAB", (-14.0, -30.0, -0.6), (14.0, south, 0.0), M["paving"], plaza)
+    outside.paving(-13.4, -29.4, 13.4, south - 0.05, plaza)
+
+    outside.facade(HALF_X, HALF_Y, WALL, HEIGHT, ENTRANCE_HALF_W, root)
+    outside.canopy(HALF_Y, WALL, root)
 
     edges = {
         "W": ((-14.0, -30.0), (-13.4, south)),
@@ -326,24 +311,22 @@ def parvis(root) -> None:
         "S": ((-14.0, -30.0), (14.0, -29.4)),
     }
     for key, ((x0, y0), (x1, y1)) in edges.items():
-        box(f"PARVIS_PLANTER_{key}", (x0, y0, 0.0), (x1, y1, 0.55), M["planter"], plaza)
+        bevel(box(f"PARVIS_PLANTER_{key}", (x0, y0, 0.0), (x1, y1, 0.55), M["planter"], plaza), 0.02)
         helper_volume(box(f"COL_PARVIS_{key}", (x0, y0, 0.0), (x1, y1, 1.2), None, plaza))
+    outside.planter_greenery([(x0, y0, x1, y1) for (x0, y0), (x1, y1) in edges.values()], plaza)
 
     trees = MeshBuilder()
-    for x, y in ((-13.7, -14.0), (-13.7, -22.0), (13.7, -14.0), (13.7, -22.0), (-6.0, -29.7), (6.0, -29.7)):
-        trees.cylinder((x, y, 0.55), 0.12, 2.2, M["trunk"])
-        trees.sphere((x, y, 3.3), 1.3, M["foliage"])
+    for k, (x, y) in enumerate(((-13.7, -14.0), (-13.7, -22.0), (13.7, -14.0), (13.7, -22.0), (-6.0, -29.7), (6.0, -29.7))):
+        land.tree(trees, x, y, 0.5, "round", 900 + k)
     trees.build("PARVIS_TREES", parent=plaza)
 
-    stand = MeshBuilder()
-    stand.box((-7.6, -21.0, 0.0), (-4.4, -20.2, 0.9), M["stand"])
-    stand.box((-7.3, -20.8, 0.9), (-6.7, -20.4, 0.98), M["leaflet"])
-    stand.build("STAND_PARVIS", parent=plaza)
-    helper_volume(box("COL_STAND_PARVIS", (-7.6, -21.0, 0.0), (-4.4, -20.2, 0.9), None, plaza))
+    outside.street_furniture(plaza)
+    outside.stand(-7.6, -21.0, -4.4, -20.2, plaza)
 
-    volunteer("VOLUNTEER_01", -3.6, -13.0, 1.0, M["clothes_teal"], M["skin_a"], plaza)
-    volunteer("VOLUNTEER_02", 3.9, -14.5, -1.0, M["clothes_terracotta"], M["skin_b"], plaza)
-    volunteer("VOLUNTEER_03", -6.0, -19.4, 1.0, M["clothes_mustard"], M["skin_c"], plaza)
+    # Facing the walkway: +X for the west side, -X for the east side (built facing +Y).
+    outside.volunteer("VOLUNTEER_01", -3.6, -13.0, -math.pi / 2, 0, plaza)
+    outside.volunteer("VOLUNTEER_02", 3.9, -14.5, math.pi / 2, 1, plaza)
+    outside.volunteer("VOLUNTEER_03", -6.0, -19.4, -math.pi / 2 + 0.3, 2, plaza)
 
     # Walking past the volunteers opens the end menu.
     helper_volume(box("TRIGGER_PARVIS", (-10.0, -18.0, 0.0), (10.0, -16.0, 2.4), None, plaza))

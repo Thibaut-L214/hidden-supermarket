@@ -26,11 +26,15 @@ export class StoreWorld {
       const picto = root.getObjectByName(shelfNodes(chain.id).picto);
       if (picto) picto.add(createScanPictogram(picto));
     }
-    // Hanging aisle signs carry their generic category in glTF extras (no brand, no price).
+    // Aisle signs (hanging, two-sided) and the store sign carry a generic word in glTF
+    // extras (no brand, no price); the text is drawn here.
     root.traverse((object) => {
       const label = object.userData.label;
-      if (/^AISLE_SIGN_\d+$/.test(object.name) && typeof label === "string") {
+      if (typeof label !== "string") return;
+      if (/^AISLE_SIGN_\d+$/.test(object.name)) {
         createSignLabel(object, label, true).forEach((face) => object.add(face));
+      } else if (object.name === "STORE_SIGN") {
+        object.add(createSignLabel(object, label));
       }
     });
     return new StoreWorld(root);

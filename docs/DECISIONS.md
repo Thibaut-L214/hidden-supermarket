@@ -121,6 +121,13 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - Clôture d'enceinte de la ferme, loin des bâtiments, ouverte sur le chemin du camion : rien ne doit évoquer un parcours extérieur tant que le système d'élevage n'est pas choisi.
 - Ligne électrique sur poteaux bois, traverses, isolateurs et trois conducteurs en chaînette, du centre de conditionnement à la ferme.
 
+## Lot 4 : parvis
+
+- Façade sud : soubassement, panneaux à joints, vitrines teintées à meneaux, acrotère sur tout le pourtour du toit. Enseigne `STORE_SIGN` au mot générique « Supermarché » (extra glTF `label`, dessiné à l'exécution) : aucune marque, aucun logo.
+- Marquise d'entrée en porte-à-faux sur deux poteaux, éclairage chaud en sous-face ; pavage en grille fine (ombres de contact) avec joints ; bancs à lattes, arceaux vélos, corbeilles ; jardinières plantées, arbres du paysage.
+- Bénévoles : figures stylisées sans traits du visage, posture calme, tract vierge à la main, carnations, coiffures et vêtements variés, sacoche ou chignon pour les distinguer ; tous à l'écart du passage. Stand à jupe unie, piles de tracts et kakémono vierges.
+- Le passage de l'entrée au déclencheur du parvis reste dégagé (vérifié en jeu).
+
 ## Entrées
 
 - Touches lues via `KeyboardEvent.code` : ZQSD (AZERTY) et WASD (QWERTY) correspondent aux mêmes codes physiques.

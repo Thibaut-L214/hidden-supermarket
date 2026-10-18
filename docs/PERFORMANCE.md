@@ -8,7 +8,7 @@ Budgets de référence : TECH.md §07 (60 fps visés, p95 < 25 ms, 30 fps stable
 - L'encart affiche : fps moyen et p95 du temps d'image (fenêtre glissante de 300 images), draw calls, triangles, géométries, textures, tas JS (Chrome uniquement), temps de chargement de chaque GLB.
 - Mesurer sur la fenêtre visible et au premier plan : un onglet masqué ne produit pas d'images.
 
-## Relevé du 2026-10-18, après les lots 1 à 3 (magasin, hangar et logistique, paysage) (Chrome, macOS, fenêtre 858 × 1072, devicePixelRatio 2)
+## Relevé du 2026-10-18, après les lots 1 à 4 (magasin, hangar et logistique, paysage, parvis) (Chrome, macOS, fenêtre 858 × 1072, devicePixelRatio 2)
 
 Compteurs de rendu, relevés par image dans le navigateur intégré. Ils ne dépendent pas du matériel. Entre parenthèses, les valeurs de l'étape 6, avant l'enrichissement.
 
@@ -19,10 +19,11 @@ Compteurs de rendu, relevés par image dans le navigateur intégré. Ils ne dép
 | Magasin, vitrines réfrigérées | 43 | 52 760 |
 | Terrasse, chaîne en cours, regard sur le hangar et le paysage | 130 (74) | 190 608 (13 146) |
 | Parvis, vue vers l'extérieur | 20 (14) | 17 356 (2 772) |
+| Parvis, face à la façade (intérieur visible derrière les vitrines) | 210 | 198 316 |
 
 | Ressource | Export Blender | Optimisé (servi) | Transfert gzip | Chargement local |
 | --- | ---: | ---: | ---: | ---: |
-| `store.glb` | 11,8 Mo | 2,9 Mo | 793 Ko | 15 ms |
+| `store.glb` | 12,5 Mo | 3,1 Mo | 829 Ko | 15 ms |
 | `terrace_eggs.glb` | 7,1 Mo | 1,7 Mo | 609 Ko | 15 ms |
 
 `store.glb` contient 187 000 triangles et 333 000 sommets (`node scripts/inspect-glb.mjs public/assets/store/store.glb`). Les marchandises représentent l'essentiel : gondole Boissons 35 000 triangles, chaque vitrine 15 000.
@@ -43,6 +44,7 @@ Le module de terrasse est préchargé dès que le joueur vise le rayon : les por
 ## Pistes si un budget est dépassé
 
 - Qualité graphique réduite (menu pause) : pixel ratio 1, ombres du soleil coupées.
+- Vue de la façade depuis le parvis : 210 appels de dessin, au-delà de la cible de 150, car tout l'intérieur du magasin reste dessiné derrière les vitrines (pas d'occlusion). Piste : vitrines plus opaques et intérieur masqué quand le joueur est sur le parvis.
 - Marchandises : premier poste de triangles. Leviers suivants : moins de segments, rangées arrière omises, ou instanciation (`EXT_mesh_gpu_instancing`) au prix de l'occlusion bakée par objet.
 - Les GLB passent par `scripts/optimize-glb.mjs` : dedup, prune (empties conservés), weld, reorder, compression meshopt par filtres. Pas de quantification : elle déplacerait des échelles dans les transforms de nœuds, dont dépendent pivots et contrat.
 - Textures définitives en KTX2 : installer KTX-Software (`toktx`) ; le script signale les textures restées non compressées. Le runtime sait déjà les lire (`KTX2Loader`, transcodeur copié dans `public/basis/`).
