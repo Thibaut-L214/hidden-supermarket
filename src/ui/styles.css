@@ -42,3 +42,141 @@ body,
   color: var(--error);
   font-weight: 600;
 }
+
+#reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 0 0 1.5px var(--ink);
+  pointer-events: none;
+}
+
+#reticle[hidden],
+.panel[hidden] {
+  display: none;
+}
+
+.panel {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  box-sizing: border-box;
+  width: min(34rem, calc(100% - 2rem));
+  height: fit-content;
+  max-height: calc(100% - 2rem);
+  overflow-y: auto;
+  padding: 1.5rem 1.75rem;
+  border-radius: 0.6rem;
+  background: var(--paper);
+  box-shadow: 0 0.5rem 2rem rgb(31 36 32 / 25%);
+  line-height: 1.45;
+}
+
+.panel h1,
+.panel h2 {
+  margin: 0 0 0.75rem;
+  line-height: 1.2;
+}
+
+.panel h1 {
+  font-size: 1.6rem;
+}
+
+.panel h2 {
+  font-size: 1.15rem;
+}
+
+.panel p {
+  margin: 0 0 0.9rem;
+}
+
+.notice {
+  padding: 0.6rem 0.8rem;
+  border-left: 4px solid #6f8a68;
+  background: #ecefe6;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.9rem;
+}
+
+.controls dt {
+  font-weight: 600;
+}
+
+.controls dd {
+  margin: 0;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.2em;
+  margin: 0 0.1em;
+  padding: 0 0.3em;
+  border: 1px solid #9c9686;
+  border-radius: 0.25em;
+  background: #fff;
+  font: inherit;
+  font-size: 0.85em;
+  text-align: center;
+}
+
+.panel label {
+  display: block;
+  margin: 0.6rem 0;
+}
+
+.panel input[type="range"] {
+  display: block;
+  width: 100%;
+}
+
+.toggle input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-right: 0.4rem;
+  vertical-align: -0.15rem;
+}
+
+.panel fieldset {
+  margin: 1rem 0 0;
+  border: 1px solid #cfc8b8;
+  border-radius: 0.4rem;
+}
+
+.panel button {
+  display: block;
+  margin: 1rem 0 0.5rem;
+  padding: 0.65rem 1.4rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: #3f5a3c;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panel button:disabled {
+  background: #8e968a;
+  cursor: progress;
+}
+
+.panel button:focus-visible,
+.panel input:focus-visible {
+  outline: 3px solid #c47a1e;
+  outline-offset: 2px;
+}
+
+.disclaimer {
+  font-size: 0.85rem;
+  color: #5a5f58;
+}

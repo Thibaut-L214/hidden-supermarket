@@ -2,11 +2,13 @@ import {
   Box3,
   CanvasTexture,
   DirectionalLight,
+  Euler,
   HemisphereLight,
   Mesh,
   MeshStandardMaterial,
   type Object3D,
   PlaneGeometry,
+  Quaternion,
   SRGBColorSpace,
   Scene,
   Vector3,
@@ -37,11 +39,13 @@ export class StoreWorld {
     return new StoreWorld(root);
   }
 
-  /** Player spawn: world position at eye height. Facing is the spawn's local -Z. */
-  spawnEye(target = new Vector3()): Vector3 {
+  /** Player spawn on the floor plane; the player faces the spawn's local -Z. */
+  spawnPose(): { position: { x: number; z: number }; yaw: number } {
     const spawn = this.root.getObjectByName("SPAWN_PLAYER");
     if (!spawn) throw new Error("SPAWN_PLAYER absent");
-    return spawn.getWorldPosition(target).setY(EYE_HEIGHT);
+    const position = spawn.getWorldPosition(new Vector3());
+    const yaw = new Euler().setFromQuaternion(spawn.getWorldQuaternion(new Quaternion()), "YXZ").y;
+    return { position: { x: position.x, z: position.z }, yaw };
   }
 }
 

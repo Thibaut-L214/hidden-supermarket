@@ -24,7 +24,9 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 | tout état | ERROR | échec de chargement ou état incohérent |
 | ERROR | SAFE_RETURN → STORE | message affiché, joueur replacé au magasin |
 
-- La pause est un drapeau orthogonal, pas un état.
+- La pause est un drapeau orthogonal, pas un état. Elle se déclenche par `Échap` (perte du verrouillage du pointeur), `P` ou l'onglet masqué ; l'horloge de jeu s'arrête et reprend sans saut.
+- Un rayon est marqué « exploré » quand sa chaîne atteint `RECAP` ; un retour anticipé ne le marque pas.
+- Si le navigateur refuse le verrouillage du pointeur, la vue se pilote en glisser-déposer à la souris.
 - Le toit relève de l'état `REVEAL` ; la timeline commence après. `revealRoof` n'est pas un événement de timeline.
 
 ## Contrats de données
