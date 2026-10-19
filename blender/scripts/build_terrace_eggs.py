@@ -31,14 +31,12 @@ HOUSE_HALF_L, HOUSE_H = 35.0, 4.0
 # Road network (axis-aligned centre lines, width). The delivery route runs east of the
 # henhouses (x = 45) and ends in front of the store's plinth, below the terrace.
 ROADS = [
-    ((HOUSE_HALF_L + 4.0, 35.0), (78.0, 35.0), 6.0),  # egg room dock → east
-    ((75.0, 32.0), (75.0, 100.0), 6.0),  # east → packing centre
-    ((42.0, 111.0), (60.0, 111.0), 6.0),  # packing centre → west
-    ((45.0, 8.0), (45.0, 114.0), 6.0),  # down the east side of the farm
-    ((14.0, 11.0), (48.0, 11.0), 6.0),  # → in front of the store
-    ((HOUSE_HALF_L + 4.0, 30.0), (54.0, 30.0), 6.0),  # apron south of the egg room → east
-    ((54.0, 30.0), (54.0, 35.0), 6.0),  # → joins the egg road
-    ((78.0, 35.0), (170.0, 35.0), 6.0),  # east, out of the farm
+    ((HOUSE_HALF_L + 4.0, 35.0), (170.0, 35.0), 6.0),  # egg room dock → east, out of the farm
+    ((75.0, 32.0), (75.0, 100.0), 6.0),  # → packing centre (joins the road above)
+    ((46.0, 111.0), (60.0, 111.0), 6.0),  # packing centre → west
+    ((49.0, 8.0), (49.0, 114.0), 6.0),  # down the east side of the farm, clear of the parked trucks
+    ((14.0, 11.0), (49.0, 11.0), 6.0),  # → in front of the store
+    ((HOUSE_HALF_L + 4.0, 28.0), (49.0, 28.0), 6.0),  # apron south of the egg room (animal truck) → joins x = 49
 ]
 FARM_COMPOUND = (-50.0, 18.0, 42.0, 74.0)
 PACKING_YARD = (50.0, 92.0, 106.0, 130.0)
@@ -143,10 +141,10 @@ def landscape(root) -> None:
     # No hedge across a road (the farm's roads leave the scene to the east).
     hedges = [h for h in hedges if not crosses_road(h)]
     rows = [
-        ((52.0, 16.0), (52.0, 26.0), "poplar"),
-        ((52.0, 44.0), (52.0, 104.0), "poplar"),
-        ((46.0, 117.0), (60.0, 117.0), "round"),
-        ((18.0, 17.0), (40.0, 17.0), "round"),
+        ((55.0, 16.0), (55.0, 26.0), "poplar"),
+        ((55.0, 44.0), (55.0, 104.0), "poplar"),
+        ((50.0, 117.0), (60.0, 117.0), "round"),
+        ((18.0, 17.0), (43.0, 17.0), "round"),
     ]
     groves = [
         (-90.0, 40.0, 12), (-130.0, 120.0, 15), (120.0, 60.0, 12), (140.0, 180.0, 14), (-60.0, 170.0, 10),
@@ -154,7 +152,8 @@ def landscape(root) -> None:
     ]
     land.vegetation("LAND_EGGS", terrain, rows, groves, hedges, root)
 
-    land.perimeter_fence("FENCE_EGGS_FARM", (-48.0, 20.0, 40.5, 72.0), [(40.0, 30.0, 41.0, 40.0)], GROUND_Z, root)
+    # The fence is open on the east side where the apron roads leave the farm.
+    land.perimeter_fence("FENCE_EGGS_FARM", (-48.0, 20.0, 40.5, 72.0), [(40.0, 25.0, 41.0, 40.0)], GROUND_Z, root)
     land.power_line("POWER_LINE_EGGS", terrain, [(210.0, 140.0), (150.0, 120.0), (103.0, 118.0), (103.0, 82.0), (84.0, 48.0), (41.5, 46.0)], root)
 
     hills = MeshBuilder()
@@ -262,34 +261,29 @@ def logistics(root) -> None:
     props.unit_group("CRATES_EGGS_COLLECT", (east + 0.4, 33.2, g), [(x, y) for y in range(3) for x in range(2)], props.crate_pallet, root, step=(1.3, 1.5))
     props.unit_group("CARTONS_EGGS_PACKED", (54.0, 101.0, g), [(x, y) for y in range(2) for x in range(2)], props.carton_pallet, root, step=(1.3, 1.5))
     # Hen crates wait by the henhouse's service door, then travel to the truck's deck.
-    props.unit_group("HENCRATES_EGGS_HALL", (east + 0.5, 29.2, g), [(x, y) for y in range(4) for x in range(2)], props.hen_module, root, step=(0.95, 0.8))
+    props.unit_group("HENCRATES_EGGS_HALL", (east + 0.5, 26.8, g), [(x, y) for y in range(4) for x in range(2)], props.hen_module, root, step=(0.95, 0.8))
 
     props.truck("TRUCK_EGGS_FARM", "CARGO_EGGS_FARM", props.crate_pallet, props.M["cab_farm"], (east + 6.0, 35.0, g), root)
     props.truck(
-        "TRUCK_EGGS_ANIMALS", "HENCRATES_EGGS_TRUCK", props.hen_module, props.M["cab_farm"], (east + 7.0, 30.0, g), root,
+        "TRUCK_EGGS_ANIMALS", "HENCRATES_EGGS_TRUCK", props.hen_module, props.M["cab_farm"], (east + 7.0, 28.0, g), root,
         cells=[(x, y) for y in range(4) for x in range(2)], step=(1.1, 1.3), slats=True,
     )
     props.truck("TRUCK_EGGS_DELIVERY", "CARGO_EGGS_DELIVERY", props.carton_pallet, props.M["cab_delivery"], (57.0, 111.0, g), root)
 
+    # Dashes follow the centre of every road except the short apron spur; none cross a junction.
+    dashed = [True] * (len(ROADS) - 1) + [False]
     props.road_markings(
         "ROAD_EGGS_MARKINGS",
-        [
-            ((HOUSE_HALF_L + 4.0, 35.0), (170.0, 35.0)),
-            ((HOUSE_HALF_L + 4.0, 30.0), (54.0, 30.0)),
-            ((75.0, 35.0), (75.0, 100.0)),
-            ((45.0, 111.0), (60.0, 111.0)),
-            ((45.0, 11.0), (45.0, 111.0)),
-            ((14.0, 11.0), (45.0, 11.0)),
-        ],
+        [(a, b, land.road_rect(rd), flag) for rd, flag in zip(ROADS, dashed) for a, b in [(rd[0], rd[1])]],
         GROUND_Z + 0.05,
         root,
     )
 
-    path("ANIMALS", [(east + 7.0, 30.0), (50.0, 30.0), (54.0, 31.5), (55.5, 34.6), (60.0, 35.4), (78.0, 35.5), (120.0, 35.0), (170.0, 35.0)], root)
+    path("ANIMALS", [(east + 7.0, 28.0), (46.0, 28.2), (48.0, 30.4), (49.6, 33.4), (52.5, 35.0), (62.0, 35.0), (100.0, 35.0), (170.0, 35.0)], root)
     path("FARM", [(east + 6.0, 35.0), (56.0, 35.0), (72.0, 35.5), (75.0, 40.0), (75.0, 70.0), (75.0, 96.0)], root)
     path(
         "DELIVERY",
-        [(57.0, 111.0), (47.0, 111.0), (45.0, 104.0), (45.0, 60.0), (45.0, 22.0), (44.0, 13.0), (32.0, 11.0), (17.0, 11.0)],
+        [(57.0, 111.0), (51.0, 111.0), (49.0, 104.0), (49.0, 60.0), (49.0, 22.0), (48.0, 13.0), (32.0, 11.0), (17.0, 11.0)],
         root,
     )
 

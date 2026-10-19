@@ -128,24 +128,50 @@ class Terrain:
 
 # --- roads ------------------------------------------------------------------------------------
 
+def _outside(lo: float, hi: float, cuts: list[tuple[float, float]], shortest: float = 0.6) -> list[tuple[float, float]]:
+    """Parts of [lo, hi] left once the `cuts` intervals are removed; slivers are dropped."""
+    parts, cursor = [], lo
+    for a, b in sorted(cuts):
+        if b <= cursor or a >= hi:
+            continue
+        if a - cursor >= shortest:
+            parts.append((cursor, a))
+        cursor = max(cursor, b)
+    if hi - cursor >= shortest:
+        parts.append((cursor, hi))
+    return parts
+
+
 def roads(name: str, network: list[Road], z: float, road_mat, parent) -> None:
-    """Asphalt, gravel shoulders (1 m each side) and continuous edge lines."""
+    """Asphalt, gravel shoulders (1 m each side) and edge lines.
+
+    Roads overlap where they join: asphalt and the (lower) shoulders may overlap freely, but edge
+    lines are drawn on top, so each is cut where another road's asphalt crosses it. A junction
+    then reads as one clean surface instead of two roads drawn over each other.
+    """
     asphalt, sides = MeshBuilder(), MeshBuilder()
-    for road in network:
-        x0, y0, x1, y1 = road_rect(road)
+    rects = [road_rect(r) for r in network]
+    for i, (x0, y0, x1, y1) in enumerate(rects):
         horizontal = (x1 - x0) > (y1 - y0)
+        others = [r for j, r in enumerate(rects) if j != i]
         asphalt.box((x0, y0, z), (x1, y1, z + 0.05), road_mat)
         if horizontal:
             sides.box((x0, y0 - 1.0, z), (x1, y0, z + 0.03), M["shoulder"])
             sides.box((x0, y1, z), (x1, y1 + 1.0, z + 0.03), M["shoulder"])
             for y in (y0 + 0.25, y1 - 0.35):
-                sides.box((x0 + 1.0, y, z + 0.05), (x1 - 1.0, y + 0.1, z + 0.06), M["edge_line"])
+                cuts = [(o[0], o[2]) for o in others if o[1] < y + 0.1 and o[3] > y]
+                for a, b in _outside(x0 + 0.3, x1 - 0.3, cuts):
+                    sides.box((a, y, z + 0.05), (b, y + 0.1, z + 0.06), M["edge_line"])
         else:
             sides.box((x0 - 1.0, y0, z), (x0, y1, z + 0.03), M["shoulder"])
             sides.box((x1, y0, z), (x1 + 1.0, y1, z + 0.03), M["shoulder"])
             for x in (x0 + 0.25, x1 - 0.35):
-                sides.box((x, y0 + 1.0, z + 0.05), (x + 0.1, y1 - 1.0, z + 0.06), M["edge_line"])
-    asphalt.build(name, parent=parent)
+                cuts = [(o[1], o[3]) for o in others if o[0] < x + 0.1 and o[2] > x]
+                for a, b in _outside(y0 + 0.3, y1 - 0.3, cuts):
+                    sides.box((x, a, z + 0.05), (x + 0.1, b, z + 0.06), M["edge_line"])
+    # Flat and open to the sky, and the boxes overlap where roads join: baked occlusion would
+    # only darken the overlaps (each box sees the other as an obstacle).
+    asphalt.build(name, parent=parent)["ao_skip"] = True
     sides.build(f"{name}_SIDES", parent=parent)["ao_skip"] = True
 
 

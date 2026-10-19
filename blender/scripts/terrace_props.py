@@ -183,20 +183,27 @@ def forklift(b: MeshBuilder, x: float, y: float, z0: float) -> None:
     b.box((x + 0.05, y - 0.25, z0 + 1.0), (x + 0.45, y + 0.25, z0 + 1.35), M["chassis"])
 
 
-def road_markings(name: str, segments: list[tuple[tuple[float, float], tuple[float, float]]], z: float, parent) -> None:
-    """Dashed centre lines (3 m dashes every 6 m). Kept out of the occlusion bake."""
+def road_markings(name: str, roads: list[tuple[tuple[float, float], tuple[float, float], tuple[float, float, float, float], bool]], z: float, parent) -> None:
+    """Dashed centre lines (3 m dashes every 6 m), none across another road. Each road is
+    (start, end, asphalt rect, dashed): roads without dashes still keep the others clear of them.
+    Kept out of the occlusion bake."""
     m = MeshBuilder()
-    for (ax, ay), (bx, by) in segments:
+    for i, ((ax, ay), (bx, by), _, dashed) in enumerate(roads):
+        if not dashed:
+            continue
+        others = [r[2] for j, r in enumerate(roads) if j != i]
         length = math.hypot(bx - ax, by - ay)
         ux, uy = (bx - ax) / length, (by - ay) / length
         t = 1.5
         while t + 3.0 < length:
             cx, cy = ax + ux * (t + 1.5), ay + uy * (t + 1.5)
-            if abs(ux) > abs(uy):
-                m.box((cx - 1.5, cy - 0.075, z), (cx + 1.5, cy + 0.075, z + 0.01), M["marking"])
-            else:
-                m.box((cx - 0.075, cy - 1.5, z), (cx + 0.075, cy + 1.5, z + 0.01), M["marking"])
             t += 6.0
+            half = (1.5, 0.075) if abs(ux) > abs(uy) else (0.075, 1.5)
+            lo, hi = (cx - half[0], cy - half[1]), (cx + half[0], cy + half[1])
+            # A dash that touches another road's asphalt (a junction) is dropped.
+            if any(lo[0] < o[2] and hi[0] > o[0] and lo[1] < o[3] and hi[1] > o[1] for o in others):
+                continue
+            m.box((lo[0], lo[1], z), (hi[0], hi[1], z + 0.01), M["marking"])
     m.build(name, parent=parent)["ao_skip"] = True
 
 
