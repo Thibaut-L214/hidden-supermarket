@@ -162,6 +162,14 @@ kbd {
   outline-offset: 2px;
 }
 
+.intro-more {
+  margin: 0.4rem 0 0.9rem;
+}
+
+.intro-more[open] summary {
+  margin-bottom: 0.75rem;
+}
+
 .disclaimer {
   font-size: 0.85rem;
   color: #5a5f58;
@@ -252,13 +260,15 @@ kbd {
   color: #4d5a4a;
 }
 
-.recap-sources summary {
+.recap-sources summary,
+.intro-more summary {
   cursor: pointer;
   font-weight: 600;
   color: #3f5a3c;
 }
 
-.recap-sources summary:focus-visible {
+.recap-sources summary:focus-visible,
+.intro-more summary:focus-visible {
   outline: 3px solid #c47a1e;
   outline-offset: 2px;
 }
