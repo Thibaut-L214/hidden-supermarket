@@ -232,9 +232,9 @@ def stand(x0: float, y0: float, x1: float, y1: float, root) -> None:
 
 # --- people -----------------------------------------------------------------------------------
 # Figures are built in their own frame (origin between the feet, facing +Y, Z up), about 1.7 m
-# tall, with human proportions: tapered limbs bent at elbow and knee, shoulders, neck, a head with
-# nose, ears and eyes, clothing in layers (collar, cuffs, hem) and a little weight on one leg. The
-# detail stays at the scale of a forecourt seen from 5 m and more.
+# tall. Bodies are lofted through elliptical cross-sections, so torso, hips, thighs, calves, arms
+# and head each have a continuous, rounded shape; clothing follows them (hem band, collar, sleeve
+# cuffs, trouser cuffs). The detail stays at the scale of a forecourt seen from 3 m and more.
 
 HEIGHTS = (1.74, 1.66, 1.80, 1.62, 1.72)
 
@@ -248,6 +248,9 @@ class Figure:
         self.b = MeshBuilder()
         self.skin, self.hair = M["skin"][self.v], M["hair"][self.v]
         self.top, self.legs = M["top"][self.v], M["trousers"][self.v]
+        # Narrower shoulders and wider hips for two of the variants, so the bodies differ too.
+        self.shoulders = 0.92 if self.v in (1, 3) else 1.0
+        self.hips = 1.06 if self.v in (1, 3) else 1.0
 
     def p(self, x: float, y: float, z: float) -> tuple[float, float, float]:
         return (x * self.k, y * self.k, z * self.k)
@@ -255,68 +258,139 @@ class Figure:
     def r(self, value: float) -> float:
         return value * self.k
 
-    def tube(self, a, b, ra: float, rb: float, mat, segments: int = 8) -> None:
-        self.b.limb(self.p(*a), self.p(*b), self.r(ra), self.r(rb), mat, segments)
+    def loft(self, rings, mat, segments: int = 12, caps: bool = True, ref=(0.0, 1.0, 0.0)) -> None:
+        self.b.loft([(self.p(*c), self.r(ru), self.r(rv)) for c, ru, rv in rings], mat, segments, caps, ref)
 
     def blob(self, c, radii, mat, u: int = 8, v: int = 5) -> None:
         self.b.ellipsoid(self.p(*c), tuple(self.r(x) for x in radii), mat, u=u, v=v)
 
 
+def _lerp(a, b, t: float):
+    return tuple(x + (y - x) * t for x, y in zip(a, b))
+
+
 def _legs(f: Figure, shift: float) -> None:
-    """Both legs, trousers, shoes. `shift` puts the weight on the right leg (left knee forward)."""
+    """Hips, both legs, trouser cuffs and shoes. `shift` puts the weight on the right leg."""
+    h = f.hips
+    # The seat and crotch in trouser cloth, so the legs join the body with no gap.
+    f.loft(
+        [((0.0, 0.0, 0.7), 0.045 * h, 0.06), ((0.0, 0.0, 0.78), 0.11 * h, 0.09), ((0.0, 0.0, 0.86), 0.158 * h, 0.098), ((0.0, -0.004, 0.935), 0.158 * h, 0.092)],
+        f.legs,
+        segments=12,
+    )
     for side in (-1, 1):
-        x = 0.095 * side
-        knee_y = 0.035 * shift * (1 if side < 0 else -0.4)
-        f.tube((x, 0.0, 0.92), (x * 1.05, knee_y, 0.5), 0.088, 0.066, f.legs)
-        f.tube((x * 1.05, knee_y, 0.5), (x * 1.02, 0.0, 0.1), 0.062, 0.046, f.legs)
-        f.blob((x * 1.05, knee_y, 0.5), (0.066, 0.066, 0.066), f.legs, 7, 4)
-        # Cuff, then a shoe with a pale sole and a rounded toe.
-        f.tube((x * 1.02, 0.0, 0.13), (x * 1.02, 0.0, 0.08), 0.05, 0.054, f.legs)
-        f.b.box(f.p(x - 0.05, -0.06, 0.0), f.p(x + 0.05, 0.14, 0.02), M["sole"])
-        f.b.box(f.p(x - 0.05, -0.06, 0.02), f.p(x + 0.05, 0.1, 0.08), M["shoes"])
-        f.blob((x, 0.115, 0.05), (0.052, 0.07, 0.04), M["shoes"], 7, 4)
+        x = 0.088 * side
+        ky = 0.04 * shift * (1 if side < 0 else -0.35)  # the relaxed leg bends forward
+        f.loft(
+            [
+                ((x * 0.97, 0.0, 0.93), 0.08, 0.092),
+                ((x * 1.04, 0.004, 0.8), 0.088, 0.095),
+                ((x * 1.08, ky * 0.6, 0.63), 0.072, 0.078),
+                ((x * 1.1, ky, 0.5), 0.062, 0.066),
+                ((x * 1.09, ky * 0.4 - 0.012, 0.36), 0.058, 0.062),
+                ((x * 1.06, 0.0, 0.2), 0.043, 0.046),
+                ((x * 1.05, 0.0, 0.12), 0.046, 0.05),
+                ((x * 1.05, 0.0, 0.085), 0.049, 0.053),
+            ],
+            f.legs,
+            segments=10,
+        )
+        # Shoe: a rounded last lofted heel to toe, on a pale sole.
+        sx = x * 1.05
+        f.loft(
+            [
+                ((sx, -0.068, 0.05), 0.042, 0.042),
+                ((sx, -0.0, 0.043), 0.049, 0.04),
+                ((sx, 0.08, 0.036), 0.053, 0.033),
+                ((sx, 0.15, 0.028), 0.042, 0.024),
+                ((sx, 0.177, 0.022), 0.02, 0.016),
+            ],
+            M["shoes"],
+            segments=10,
+        )
+        f.b.box(f.p(sx - 0.05, -0.07, 0.0), f.p(sx + 0.05, 0.17, 0.014), M["sole"])
 
 
 def _torso(f: Figure) -> None:
-    f.blob((0.0, 0.0, 0.95), (0.165, 0.105, 0.12), f.legs, 9, 5)  # hips
-    f.blob((0.0, 0.0, 1.1), (0.17, 0.108, 0.2), f.top, 10, 6)  # waist and ribs
-    f.blob((0.0, 0.005, 1.31), (0.2, 0.125, 0.19), f.top, 10, 6)  # chest and shoulders
-    for side in (-1, 1):
-        f.blob((0.2 * side, 0.0, 1.43), (0.055, 0.055, 0.058), f.top, 7, 4)  # shoulder caps
-    # Hem band, and a collar: crew neck, high collar or a hood bunched behind, by variant.
-    f.tube((0.0, 0.0, 0.9), (0.0, 0.0, 0.97), 0.18, 0.175, f.top, 10)
-    if f.v in (0, 3):
-        f.blob((0.0, -0.075, 1.5), (0.1, 0.06, 0.05), f.top, 8, 4)
-    elif f.v == 2:
-        f.tube((0.0, 0.0, 1.46), (0.0, 0.0, 1.55), 0.075, 0.06, f.top, 10)
+    s = f.shoulders
+    f.loft(
+        [
+            ((0.0, -0.004, 0.88), 0.18 * f.hips, 0.108),
+            ((0.0, -0.004, 1.0), 0.168 * f.hips, 0.1),
+            ((0.0, 0.0, 1.1), 0.15, 0.094),
+            ((0.0, 0.0, 1.22), 0.163, 0.104),
+            ((0.0, 0.008, 1.34), 0.185 * s, 0.112),
+            ((0.0, 0.004, 1.42), 0.2 * s, 0.104),
+            ((0.0, 0.0, 1.465), 0.165 * s, 0.088),
+            ((0.0, 0.004, 1.49), 0.078, 0.066),
+            ((0.0, 0.008, 1.515), 0.053, 0.052),
+        ],
+        f.top,
+        segments=14,
+        caps=True,
+    )
+    # Collar: a crew neck, a high collar, or a bunched hood, by variant.
+    if f.v == 2:
+        f.loft([((0.0, 0.006, 1.46), 0.07, 0.066), ((0.0, 0.01, 1.56), 0.058, 0.056)], f.top, segments=14)
+    elif f.v in (0, 3):
+        f.blob((0.0, -0.07, 1.5), (0.1, 0.055, 0.045), f.top, 10, 5)
+        f.loft([((0.0, 0.004, 1.47), 0.082, 0.072), ((0.0, 0.008, 1.515), 0.06, 0.057)], f.top, segments=14)
     else:
-        f.blob((0.0, 0.0, 1.49), (0.085, 0.07, 0.03), f.top, 8, 4)
+        f.loft([((0.0, 0.004, 1.47), 0.082, 0.072), ((0.0, 0.008, 1.515), 0.06, 0.057)], f.top, segments=14)
 
 
 def _head(f: Figure) -> None:
-    f.tube((0.0, 0.0, 1.46), (0.0, 0.012, 1.58), 0.05, 0.045, f.skin)  # neck
-    f.blob((0.0, 0.018, 1.67), (0.082, 0.098, 0.108), f.skin, 10, 7)  # skull
-    f.blob((0.0, 0.035, 1.615), (0.068, 0.075, 0.062), f.skin, 9, 5)  # jaw
-    f.blob((0.0, 0.112, 1.655), (0.014, 0.022, 0.03), f.skin, 6, 4)  # nose
-    f.blob((0.0, 0.094, 1.59), (0.026, 0.012, 0.007), M["lip"], 6, 3)  # mouth
+    f.loft(
+        [
+            ((0.0, 0.012, 1.5), 0.047, 0.05),
+            ((0.0, 0.012, 1.54), 0.047, 0.05),
+            ((0.0, 0.03, 1.565), 0.054, 0.066),
+            ((0.0, 0.035, 1.59), 0.066, 0.082),
+            ((0.0, 0.03, 1.625), 0.074, 0.092),
+            ((0.0, 0.022, 1.665), 0.077, 0.097),
+            ((0.0, 0.013, 1.705), 0.077, 0.099),
+            ((0.0, 0.006, 1.74), 0.07, 0.092),
+            ((0.0, 0.0, 1.77), 0.052, 0.07),
+            ((0.0, 0.0, 1.787), 0.02, 0.03),
+        ],
+        f.skin,
+        segments=14,
+    )
+    f.blob((0.0, 0.126, 1.643), (0.013, 0.02, 0.027), f.skin, 6, 4)  # nose
+    f.blob((0.0, 0.115, 1.598), (0.024, 0.011, 0.007), M["lip"], 6, 3)  # mouth
+    f.blob((0.0, 0.1, 1.568), (0.026, 0.02, 0.016), f.skin, 6, 3)  # chin
     for side in (-1, 1):
-        f.blob((0.088 * side, 0.015, 1.665), (0.012, 0.02, 0.03), f.skin, 6, 4)  # ears
-        f.blob((0.034 * side, 0.092, 1.685), (0.009, 0.007, 0.008), M["eye"], 5, 3)  # eyes
-        f.b.box(f.p(0.034 * side - 0.016, 0.092, 1.7), f.p(0.034 * side + 0.016, 0.102, 1.707), f.hair)  # brows
-    # Hair: a cap in the figure's colour, then the cut.
-    f.blob((0.0, -0.012, 1.705), (0.088, 0.1, 0.082), f.hair, 10, 6)
-    if f.v == 1:  # bun and a ponytail
-        f.blob((0.0, -0.1, 1.74), (0.045, 0.045, 0.045), f.hair, 7, 5)
+        f.blob((0.079 * side, 0.012, 1.662), (0.011, 0.02, 0.03), f.skin, 6, 4)  # ears
+        f.blob((0.034 * side, 0.104, 1.69), (0.009, 0.007, 0.008), M["eye"], 5, 3)  # eyes
+        f.b.box(f.p(0.034 * side - 0.017, 0.107, 1.711), f.p(0.034 * side + 0.017, 0.116, 1.718), f.hair)  # brows
+    # Hair: a cap set back from the forehead, then the cut.
+    f.loft(
+        [
+            ((0.0, -0.002, 1.668), 0.081, 0.099),
+            ((0.0, 0.0, 1.706), 0.083, 0.104),
+            ((0.0, -0.002, 1.745), 0.076, 0.097),
+            ((0.0, -0.004, 1.775), 0.055, 0.073),
+            ((0.0, -0.004, 1.795), 0.02, 0.03),
+        ],
+        f.hair,
+        segments=14,
+    )
+    if f.v == 1:  # bun
+        f.blob((0.0, -0.1, 1.755), (0.044, 0.044, 0.044), f.hair, 8, 5)
     elif f.v == 3:  # long hair to the shoulders
-        f.blob((0.0, -0.045, 1.6), (0.088, 0.065, 0.12), f.hair, 9, 6)
+        f.loft(
+            [((0.0, -0.06, 1.7), 0.078, 0.048), ((0.0, -0.066, 1.62), 0.083, 0.052), ((0.0, -0.066, 1.52), 0.08, 0.05), ((0.0, -0.06, 1.46), 0.066, 0.04)],
+            f.hair,
+            segments=12,
+        )
     elif f.v == 4:  # curls
-        for dx, dz in ((-0.06, 0.0), (0.06, 0.0), (0.0, 0.05), (-0.04, 0.04), (0.04, 0.04)):
-            f.blob((dx, -0.02, 1.73 + dz), (0.04, 0.045, 0.04), f.hair, 6, 4)
+        for dx, dy, dz in ((-0.06, 0.0, 0.0), (0.06, 0.0, 0.0), (0.0, -0.05, 0.02), (-0.035, 0.03, 0.045), (0.035, 0.03, 0.045), (0.0, -0.01, 0.06)):
+            f.blob((dx, dy, 1.73 + dz), (0.038, 0.04, 0.036), f.hair, 6, 4)
 
 
 def _elbow(side: int, wrist, drop: float = 0.13, out: float = 0.05):
     """A natural elbow for a hand at `wrist`: midway, dropped and a little outwards."""
-    shoulder = (0.205 * side, 0.0, 1.44)
+    shoulder = (0.2 * side, 0.0, 1.42)
     return (
         (shoulder[0] + wrist[0]) / 2 + side * out,
         (shoulder[1] + wrist[1]) / 2 - 0.02,
@@ -324,14 +398,40 @@ def _elbow(side: int, wrist, drop: float = 0.13, out: float = 0.05):
     )
 
 
-def _arm(f: Figure, side: int, elbow, wrist) -> None:
-    """One arm from the shoulder through `elbow` to `wrist` (figure space), hand at the end."""
-    shoulder = (0.205 * side, 0.0, 1.44)
-    f.tube(shoulder, elbow, 0.052, 0.043, f.top)
-    f.blob(elbow, (0.044, 0.044, 0.044), f.top, 6, 4)
-    f.tube(elbow, wrist, 0.043, 0.034, f.top)
-    f.tube(wrist, tuple(w + (w - e) * 0.18 for w, e in zip(wrist, elbow)), 0.034, 0.028, f.skin, 6)  # wrist and back of hand
-    f.blob(tuple(w + (w - e) * 0.2 for w, e in zip(wrist, elbow)), (0.03, 0.04, 0.03), f.skin, 6, 4)
+def _arm(f: Figure, side: int, elbow, wrist, hand: str = "open") -> None:
+    """One arm: sleeve from the shoulder through `elbow` to a cuff near `wrist`, then wrist and hand."""
+    shoulder = (0.2 * side, 0.0, 1.42)
+    cuff = _lerp(elbow, wrist, 0.86)
+    f.blob(shoulder, (0.058, 0.058, 0.06), f.top, 8, 5)  # rounds the shoulder
+    f.loft(
+        [
+            (shoulder, 0.056, 0.058),
+            (_lerp(shoulder, elbow, 0.45), 0.049, 0.051),
+            (_lerp(shoulder, elbow, 0.92), 0.04, 0.042),
+            (elbow, 0.04, 0.041),
+            (_lerp(elbow, wrist, 0.35), 0.042, 0.04),
+            (_lerp(elbow, wrist, 0.7), 0.035, 0.032),
+            (cuff, 0.034, 0.031),
+        ],
+        f.top,
+        segments=8,
+    )
+    direction = tuple(w - e for w, e in zip(wrist, elbow))
+    length = math.sqrt(sum(d * d for d in direction)) or 1.0
+    unit = tuple(d / length for d in direction)
+
+    def along(t: float):
+        return tuple(w + u * t for w, u in zip(wrist, unit))
+
+    f.loft([(cuff, 0.03, 0.027), (wrist, 0.027, 0.023)], f.skin, segments=8)
+    if hand == "fist":
+        f.blob(along(0.045), (0.036, 0.036, 0.04), f.skin, 8, 5)
+    else:
+        f.loft(
+            [(wrist, 0.027, 0.02), (along(0.03), 0.04, 0.019), (along(0.07), 0.043, 0.019), (along(0.115), 0.034, 0.015), (along(0.15), 0.017, 0.01)],
+            f.skin,
+            segments=8,
+        )
 
 
 def volunteer(name: str, x: float, y: float, facing: float, variant: int, root, pose: str = "leaflet", pole_x: float = 0.0) -> None:
@@ -350,14 +450,14 @@ def volunteer(name: str, x: float, y: float, facing: float, variant: int, root, 
         # grips high, the other low and across the body.
         high, low = (pole_x, 0.3, 1.38), (pole_x, 0.3, 1.06)
         near = -1 if pole_x < 0 else 1
-        _arm(f, near, _elbow(near, high), high)
-        _arm(f, -near, _elbow(-near, low, drop=0.1), low)
+        _arm(f, near, _elbow(near, high), high, hand="fist")
+        _arm(f, -near, _elbow(-near, low, drop=0.1), low, hand="fist")
     else:
         _arm(f, -1, (-0.25, 0.01, 1.17), (-0.23, 0.04, 0.92))
         _arm(f, 1, (0.26, 0.07, 1.2), (0.22, 0.28, 1.2))
         # Leaflet held between thumb and fingers, printed face towards whoever stands in front.
         lw, lh = 0.15, 0.21
-        cx, cy, cz = 0.22 * f.k, 0.37 * f.k, 1.25 * f.k
+        cx, cy, cz = 0.22 * f.k, 0.45 * f.k, 1.3 * f.k
         tilt = 0.3  # the top leans back a little: the printed face looks up at whoever stands in front
         up = (0.0, -math.sin(tilt), math.cos(tilt))
         out = (0.0, math.cos(tilt), math.sin(tilt))

@@ -256,6 +256,47 @@ class MeshBuilder:
                 face.normal_flip()
         return self
 
+    def loft(
+        self,
+        rings: list[tuple[tuple[float, float, float], float, float]],
+        mat: bpy.types.Material | None = None,
+        segments: int = 12,
+        caps: bool = True,
+        ref: tuple[float, float, float] = (0.0, 1.0, 0.0),
+    ) -> "MeshBuilder":
+        """Smooth skin through elliptical rings: (centre, radius u, radius v) along a path.
+
+        Each ring lies across the local direction of travel; its u axis is that direction × `ref`
+        (left-right for a standing body with ref = forward), v the other. Used for torsos, limbs,
+        heads and shoes, where a tube of constant radius would look like a pipe."""
+        centres = [Vector(c) for c, _, _ in rings]
+        count = len(rings)
+        index = self._slot(mat)
+        grid = []
+        for i, (c, ru, rv) in enumerate(rings):
+            t = (centres[min(i + 1, count - 1)] - centres[max(i - 1, 0)]).normalized()
+            r = Vector(ref)
+            if abs(t.dot(r)) > 0.9:
+                r = Vector((0.0, 0.0, 1.0)) if abs(t.z) < 0.9 else Vector((1.0, 0.0, 0.0))
+            u = t.cross(r).normalized()
+            v = u.cross(t).normalized()
+            grid.append(
+                [
+                    self.bm.verts.new(centres[i] + u * (math.cos(2 * math.pi * k / segments) * ru) + v * (math.sin(2 * math.pi * k / segments) * rv))
+                    for k in range(segments)
+                ]
+            )
+        for i in range(count - 1):
+            for k in range(segments):
+                face = self.bm.faces.new((grid[i][k], grid[i][(k + 1) % segments], grid[i + 1][(k + 1) % segments], grid[i + 1][k]))
+                face.material_index = index
+                face.smooth = True
+        if caps:
+            for ring in (grid[0], grid[-1]):
+                face = self.bm.faces.new(ring)
+                face.material_index = index
+        return self
+
     def oriented_box(
         self,
         centre: tuple[float, float, float],
