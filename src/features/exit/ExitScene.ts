@@ -12,6 +12,17 @@ export const EXIT_DOOR_SECONDS = 0.8;
 const REACH_INSIDE = 0.8;
 const REACH_OUTSIDE = 3.0;
 const REACH_SIDE = 1.0;
+/**
+ * Wider zone in which walking towards the doors already opens them, so they are open by the time
+ * the player arrives (they take EXIT_DOOR_SECONDS; walking is about 2 m/s). Standing still or
+ * turning away there does nothing: the spawn point lies inside it.
+ */
+const EARLY_INSIDE = 3.6;
+const EARLY_OUTSIDE = 6.0;
+const EARLY_SIDE = 1.5;
+/** Speed towards the doors, in m/s, that counts as approaching; faster than this is a teleport. */
+const APPROACH_SPEED = 0.25;
+const TELEPORT_SPEED = 8;
 /** How far each leaf slides into the wall, in metres. */
 const SLIDE = 1.45;
 
@@ -54,8 +65,12 @@ export class ExitScene {
   private readonly doorway: Rect;
   /** Where standing opens the doors: in front of the entrance on both sides. */
   private readonly approach: Rect;
+  /** Wider zone where walking towards the doors opens them early. */
+  private readonly early: Rect;
   /** World Z of the outer face of the entrance: beyond it the player is outdoors. */
   private readonly outsideZ: number;
+  private previous: Vec2 | null = null;
+  private approaching = false;
 
   constructor(private readonly deps: ExitSceneDeps) {
     const find = (name: string) => {
@@ -86,6 +101,28 @@ export class ExitScene {
       minZ: this.exitZone.minZ - REACH_INSIDE,
       maxZ: this.outsideZ + REACH_OUTSIDE,
     };
+    this.early = {
+      minX: this.doorway.minX - EARLY_SIDE,
+      maxX: this.doorway.maxX + EARLY_SIDE,
+      minZ: this.exitZone.minZ - EARLY_INSIDE,
+      maxZ: this.outsideZ + EARLY_OUTSIDE,
+    };
+  }
+
+  /** True while the player walks towards the doorway inside the early zone. */
+  private updateApproach(p: Vec2, dt: number): void {
+    const last = this.previous;
+    this.previous = { ...p };
+    if (!inside(p, this.early)) {
+      this.approaching = false;
+      return;
+    }
+    if (!last || dt <= 0) return;
+    const doorZ = (this.exitZone.minZ + this.outsideZ) / 2;
+    const towards = Math.sign(doorZ - p.z) * ((p.z - last.z) / dt);
+    if (Math.abs(p.z - last.z) / dt > TELEPORT_SPEED) this.approaching = false;
+    else if (towards > APPROACH_SPEED) this.approaching = true;
+    else if (towards < -APPROACH_SPEED) this.approaching = false;
   }
 
   /** Outdoor light share, like the terrace: full on the forecourt, some through the doors. */
@@ -112,7 +149,8 @@ export class ExitScene {
     // visit continues behind it.
     const current = game.snapshot.state;
     const serving = current === "STORE" || current === "EXIT";
-    const open = serving && inside(p, this.approach);
+    this.updateApproach(p, dt);
+    const open = serving && (inside(p, this.approach) || this.approaching);
     const goal = open ? 1 : 0;
     // Never slide a leaf back while someone stands in the doorway.
     if (!open && inside(p, this.doorway)) return;

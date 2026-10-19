@@ -29,6 +29,7 @@ from common import (  # noqa: E402
     bevel,
     box,
     empty,
+    glass,
     helper_volume,
     material,
     reset_scene,
@@ -57,7 +58,8 @@ def materials() -> None:
     M["joint"] = material("M_FLOOR_JOINT", "#CFC9BC", roughness=0.6)
     M["belt"] = material("M_CHECKOUT_BELT", "#4A4F52", roughness=0.7)
     M["sign"] = material("M_SIGN", "#F7F4EC", roughness=0.7)
-    M["glass"] = material("M_ENTRANCE_GLASS", "#C9D3D6", roughness=0.15, metallic=0.1)
+    # Clear glass: the forecourt and the volunteers show through the sliding leaves.
+    M["glass"] = glass("M_ENTRANCE_GLASS", "#C9D3D6", alpha=0.2)
     # Forecourt: natural light and human tones (docs/DA.md §03, « Sortie L214 »).
     M["paving"] = material("M_PARVIS_PAVING", "#C4B9A6", roughness=0.85)
     M["grass"] = material("M_PARVIS_GRASS", "#A3A885", roughness=1.0)
@@ -156,6 +158,7 @@ def shell(root) -> None:
     for side, (x0, x1) in (("L", (-ENTRANCE_HALF_W, 0.0)), ("R", (0.0, ENTRANCE_HALF_W))):
         lo, hi = (x0, -HALF_Y - 0.2, 0.0), (x1, -HALF_Y - 0.1, 2.6)
         leaf = box(f"STORE_ENTRANCE_DOOR_{side}", lo, hi, M["glass"], root)
+        leaf["ao_skip"] = True  # glass neither receives nor casts occlusion
         half = ((x1 - x0) / 2, 0.05, 1.3)
         collider = MeshBuilder().box(tuple(-h for h in half), half).build(f"COL_ENTRANCE_DOOR_{side}", parent=leaf)
         helper_volume(collider)

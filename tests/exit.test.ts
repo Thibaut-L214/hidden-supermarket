@@ -96,4 +96,52 @@ describe("ExitScene", () => {
     at({ x: 0, z: 8.6 }, OPEN);
     expect(exit.openness).toBe(0);
   });
+
+  describe("early opening", () => {
+    /** Walks along Z at about 2.2 m/s, one frame every 0.1 s. */
+    function walk(setupResult: ReturnType<typeof setup>, from: number, to: number) {
+      const step = Math.sign(to - from) * 0.22;
+      for (let z = from; Math.sign(to - z) === Math.sign(step); z += step) {
+        setupResult.at({ x: 0, z }, 0.1);
+      }
+    }
+
+    it("opens while the player is still several metres away, walking towards the doors", () => {
+      const s = setup();
+      walk(s, 4.0, 6.7);
+      // z = 6.7 is outside the near zone (z > 7.4), but the player is walking to the doors.
+      expect(s.exit.openness).toBe(1);
+    });
+
+    it("does not open for a player standing in the early zone, as at the spawn point", () => {
+      const s = setup();
+      s.at({ x: 0, z: 6.0 }, 2);
+      expect(s.exit.openness).toBe(0);
+    });
+
+    it("closes again when the player turns away", () => {
+      const s = setup();
+      walk(s, 4.0, 6.7);
+      expect(s.exit.openness).toBe(1);
+      walk(s, 6.7, 4.5);
+      s.at({ x: 0, z: 4.5 }, OPEN);
+      expect(s.exit.openness).toBe(0);
+    });
+
+    it("opens for a player walking back from the forecourt, from further away", () => {
+      const s = setup();
+      s.at({ x: 0, z: 8.6 }, OPEN);
+      s.at({ x: 0, z: 15 }, OPEN); // standing on the forecourt, edge of the early zone
+      expect(s.exit.openness).toBe(0);
+      walk(s, 15, 12.5); // still beyond the near zone (z < 12.2)
+      expect(s.exit.openness).toBe(1);
+    });
+
+    it("ignores a teleport towards the doors", () => {
+      const s = setup();
+      s.at({ x: 0, z: 0 }, 0.1);
+      s.at({ x: 0, z: 6.0 }, OPEN);
+      expect(s.exit.openness).toBe(0);
+    });
+  });
 });
