@@ -7,6 +7,8 @@ import type { Caption, SourceRef, TODO_SOURCE } from "../content/types";
  * Node names refer to the chain's terrace GLB.
  * - collect / load / process / deliver: units move from `from` to `to` (groups whose children
  *   are shown or hidden one by one); collect has only `to`, deliver only `from`.
+ * - carry (on a load step): the units visibly travel from their slot in `from` to the matching
+ *   slot in `to` one after the other, instead of switching places.
  * - drive: `vehicle` follows the PATH_<pathId>_<NN> empties.
  */
 export interface TimelineStep {
@@ -16,6 +18,8 @@ export interface TimelineStep {
   captionId: string;
   from?: string;
   to?: string;
+  /** Units travel between their slots (load steps). */
+  carry?: boolean;
   vehicle?: string;
   pathId?: string;
 }

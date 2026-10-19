@@ -57,9 +57,17 @@ describe("chain configs", () => {
     },
   );
 
-  it("never stages animal transport or slaughter in the eggs chain", () => {
-    // docs/GDD.md §06.4 and docs/TECH.md §06.
-    const names = CHAINS.eggs!.timeline.flatMap((s) => [s.from, s.to, s.vehicle, s.pathId]);
-    expect(names.join(" ")).not.toMatch(/ANIMAL|LIVESTOCK|SLAUGHTER|ABATTOIR/i);
+  it("shows the hens' transport as a distinct, unsourced step, and never a slaughterhouse", () => {
+    // docs/DECISIONS.md, « Poules » : chargement et départ montrés, destination non montrée.
+    const { timeline, captions } = CHAINS.eggs!;
+    const animalSteps = timeline.filter((s) => /HENCRATES|ANIMALS/.test(`${s.from}${s.to}${s.vehicle}`));
+    expect(animalSteps.map((s) => s.id)).toEqual(["load-hens", "hens-leave"]);
+    for (const step of animalSteps) {
+      const caption = captions.find((c) => c.id === step.captionId)!;
+      expect(caption.source).toBe(TODO_SOURCE);
+      expect(caption.status).toBe("draft");
+    }
+    const names = timeline.flatMap((s) => [s.from, s.to, s.vehicle, s.pathId]);
+    expect(names.join(" ")).not.toMatch(/SLAUGHTER|ABATTOIR/i);
   });
 });

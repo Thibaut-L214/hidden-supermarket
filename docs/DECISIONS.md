@@ -33,7 +33,7 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 
 ## Contrats de données
 
-- `TimelineStep.event` : `"collect" | "load" | "drive" | "process" | "deliver"`. Au lieu d'un tableau `targets` positionnel, des champs nommés : `from` / `to` (groupes dont les enfants apparaissent ou disparaissent un à un) pour collect, load, process, deliver ; `vehicle` + `pathId` pour drive.
+- `TimelineStep.event` : `"collect" | "load" | "drive" | "process" | "deliver"` ; `carry: true` (étape `load`) fait voyager visiblement les unités, une à une, de leur place dans `from` à la place correspondante dans `to`. Au lieu d'un tableau `targets` positionnel, des champs nommés : `from` / `to` (groupes dont les enfants apparaissent ou disparaissent un à un) pour collect, load, process, deliver ; `vehicle` + `pathId` pour drive.
 - La scène d'une chaîne est une fonction pure du temps écoulé : état initial, puis chaque étape commencée dans l'ordre. Pause, replay et reprise sont donc déterministes.
 - `ChainConfig` : `captions`, `terraceCaption`, `revealCaption`, `timeline`, `recap` (3 cartels max), `sources`, `systemType`. `exitAnchor` est abandonné (le retour s'appuie sur la façade du rayon).
 - Fin de chaîne : le panneau récapitulatif libère le pointeur et propose « Revoir la chaîne », « Revenir au magasin » et « Rester sur la terrasse » ; les sources sont dans un `<details>` accessible au clavier.
@@ -41,9 +41,11 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 
 ## Filière œufs (prototype)
 
-- Système d'élevage représenté : non tranché. `systemType` vaut `TODO_SOURCE` et un cartel l'indique tant que L214 n'a pas choisi.
-- Fin de vie des poules : hors prototype.
-- Aucun camion d'animaux ni abattoir dans le circuit des œufs.
+- Système d'élevage représenté : poules pondeuses en cages superposées (choix éditorial du 2026-10-19, qui remplace « non tranché »). `systemType` vaut `"Cages"`; les cartels restent `TODO_SOURCE` tant qu'aucune source n'est rattachée, et ne citent aucun chiffre (effectifs, surface par poule, durée de ponte).
+- Les poules sont visibles : rangées de cages et poules stylisées dans le hangar (`HENS_EGGS`, `INTERIOR_EGGS`), affichées une fois le toit levé. Pas de geste ni d'animation, rien qui évoque la détresse (docs/DA.md §01).
+- Le chargement des poules ouvre la chronologie : caisses empilées portées de la porte de service au plateau d'un camion à ridelles ajourées (`TRUCK_EGGS_ANIMALS`, `HENCRATES_EGGS_HALL` → `HENCRATES_EGGS_TRUCK`, étape `carry`), puis départ du camion hors de la scène. C'est une étape distincte de la production des œufs ; deux cartels provisoires.
+- La destination des poules n'est pas montrée : ni abattoir ni fin de vie. Le camion des œufs reste un camion d'œufs.
+- Cette décision remplace « fin de vie des poules : hors prototype », « aucun camion d'animaux » et « aucune poule » (GDD §06.4, lot 2).
 
 ## Conventions Blender / GLB (complément à TECH.md §03)
 
@@ -105,7 +107,7 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 
 ## Lot 2 : hangar, logistique et terrasse
 
-- Hangar : portiques, arbalétriers, pannes et faîtage sous le toit (visibles après la révélation), soubassement béton, bardage nervuré, ventilateurs à grille, salle des œufs avec porte sectionnelle et auvent de quai, silos détaillés (échelles, trappes, cônes de vidange, conduites d'alimentation). L'intérieur reste neutre ; aucune poule.
+- Hangar : portiques, arbalétriers, pannes et faîtage sous le toit (visibles après la révélation), soubassement béton, bardage nervuré, ventilateurs à grille, salle des œufs avec porte sectionnelle et auvent de quai, silos détaillés (échelles, trappes, cônes de vidange, conduites d'alimentation). L'intérieur est celui des cages (voir « Filière œufs »).
 - `ROOF_EGGS` est exclu du bake d'occlusion : retiré à la révélation, il ne doit pas assombrir ce qu'il couvrait.
 - Unités de la timeline : palettes (caisses ajourées sur palette, cartons filmés et cerclés) au lieu de blocs. Camions détaillés sans marque (cabine, vitrages, rétroviseurs, feux, essieux tandem, plateau à ridelles). Centre de conditionnement : portes de quai avec abris et butoirs, chariot élévateur statique.
 - Itinéraire de livraison redessiné à l'est des hangars (x = 45), marquages au sol ; plus aucune route ni aucun arbre ne traverse un bâtiment.

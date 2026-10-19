@@ -43,6 +43,8 @@ export function terraceNodes(chain: ChainId) {
     focus: `ANCHOR_${id}_FOCUS`,
     roof: `ROOF_${id}`,
     interior: `INTERIOR_${id}`,
+    /** Animals of the farm building, shown once the roof is off. */
+    hens: `HENS_${id}`,
   } as const;
 }
 
@@ -91,7 +93,14 @@ const eggsTerrace = terraceNodes("eggs");
 
 export const TERRACE_EGGS_CONTRACT: AssetContract = {
   url: "/assets/eggs/terrace_eggs.glb",
-  required: [...Object.values(eggsTerrace), "BUILDING_EGGS_FARM", "PACKING_EGGS_CENTER"],
+  required: [
+    ...Object.values(eggsTerrace),
+    "BUILDING_EGGS_FARM",
+    "PACKING_EGGS_CENTER",
+    "TRUCK_EGGS_ANIMALS",
+    "HENCRATES_EGGS_HALL",
+    "HENCRATES_EGGS_TRUCK",
+  ],
   parents: {
     [eggsTerrace.view]: eggsTerrace.root,
     [eggsTerrace.focus]: eggsTerrace.root,

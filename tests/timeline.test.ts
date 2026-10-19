@@ -143,3 +143,67 @@ describe("ChainTimeline", () => {
     expect(timeline.marker.visible).toBe(false);
   });
 });
+
+describe("ChainTimeline, carry steps", () => {
+  const carry: TimelineStep[] = [
+    { id: "load", event: "load", durationSec: 10, captionId: "c", from: "HALL", to: "TRUCK", carry: true },
+  ];
+
+  /** Two groups of unit meshes whose geometry sits at its slot, origins at the group's. */
+  function slots() {
+    const root = new Group();
+    const make = (name: string, x: number) => {
+      const g = new Group();
+      g.name = name;
+      g.position.x = 0;
+      for (let i = 0; i < 3; i++) {
+        // Geometry offset by the slot, object left at its origin: like the Blender units.
+        const mesh = new Mesh(new BoxGeometry(0.2, 0.2, 0.2).translate(x, 0, i));
+        g.add(mesh);
+      }
+      root.add(g);
+      return g;
+    };
+    make("HALL", 0);
+    make("TRUCK", 10);
+    root.updateMatrixWorld(true);
+    return root;
+  }
+
+  const unit = (root: Object3D, group: string, i: number) => root.getObjectByName(group)!.children[i]!;
+
+  it("shows every unit in the hall before, and in the truck after, each at its own slot", () => {
+    const root = slots();
+    const timeline = new ChainTimeline(root, carry);
+    timeline.apply(evaluate(carry, 0));
+    expect([visible(root, "HALL"), visible(root, "TRUCK")]).toEqual([3, 0]);
+    timeline.apply(evaluate(carry, 10));
+    expect([visible(root, "HALL"), visible(root, "TRUCK")]).toEqual([0, 3]);
+    for (let i = 0; i < 3; i++) expect(unit(root, "TRUCK", i).position.toArray()).toEqual([0, 0, 0]);
+  });
+
+  it("moves the units one after another, between the two slots, on an arc", () => {
+    const root = slots();
+    const timeline = new ChainTimeline(root, carry);
+    // First unit is under way and the last has not left yet.
+    timeline.apply(evaluate(carry, 1));
+    const first = unit(root, "TRUCK", 0);
+    expect(unit(root, "HALL", 0).visible).toBe(false);
+    expect(first.visible).toBe(true);
+    expect(first.position.x).toBeLessThan(0); // still near the hall (slot 10 minus the offset)
+    expect(first.position.x).toBeGreaterThan(-10);
+    expect(unit(root, "HALL", 2).visible).toBe(true);
+    expect(unit(root, "TRUCK", 2).visible).toBe(false);
+    timeline.apply(evaluate(carry, 5));
+    expect(unit(root, "TRUCK", 0).position.toArray()).toEqual([0, 0, 0]);
+  });
+
+  it("restores rest positions when time goes back (replay)", () => {
+    const root = slots();
+    const timeline = new ChainTimeline(root, carry);
+    timeline.apply(evaluate(carry, 2));
+    timeline.apply(evaluate(carry, 0));
+    for (let i = 0; i < 3; i++) expect(unit(root, "TRUCK", i).position.toArray()).toEqual([0, 0, 0]);
+    expect(visible(root, "TRUCK")).toBe(0);
+  });
+});

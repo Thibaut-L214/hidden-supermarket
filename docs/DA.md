@@ -68,7 +68,7 @@ Un mouvement de caméra facultatif attire d’abord le regard vers l’exploitat
 
 | Rayon | Site observé | Signature de mise en scène |
 | --- | --- | --- |
-| Œufs | bâtiment de poules pondeuses | volumes en série ; collecte des œufs |
+| Œufs | bâtiment de poules pondeuses en cages | volumes en série ; poules visibles une fois le toit levé ; chargement des poules ; collecte des œufs |
 | Volaille | élevage avicole et abattoir | régularité des groupes ; étapes de transport |
 | Porc | bâtiments porcins et abattoir | cloisons, circulation, chaîne logistique |
 | Poisson | site aquacole OU pêche, selon scénario | eau, bacs, réseau de transport adapté |

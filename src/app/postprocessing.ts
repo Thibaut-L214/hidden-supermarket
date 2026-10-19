@@ -26,6 +26,8 @@ export const POST_SETTINGS = {
   ao: { radius: 0.45, distanceExponent: 1.5, thickness: 1.2, scale: 1.0, samples: 12, distanceFallOff: 1.0 },
   aoIntensity: 0.55,
   bloom: { strength: 0.32, radius: 0.55, threshold: 1.05 },
+  /** Bloom threshold in full sun: sunlit white paint and road markings stay below it, the sun disc does not. */
+  bloomThresholdOutdoor: 2.6,
 } as const;
 
 export class PostProcessing {
@@ -63,6 +65,12 @@ export class PostProcessing {
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.composer.addPass(new SMAAPass());
+  }
+
+  /** `outdoor` in [0, 1] (Atmosphere): in the sun, lit surfaces exceed the store's bloom threshold. */
+  setOutdoor(outdoor: number): void {
+    const { threshold } = POST_SETTINGS.bloom;
+    this.bloom.threshold = threshold + (POST_SETTINGS.bloomThresholdOutdoor - threshold) * outdoor;
   }
 
   /** Size in CSS pixels; the pixel ratio comes from the renderer. */

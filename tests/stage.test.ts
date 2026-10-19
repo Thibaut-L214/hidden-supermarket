@@ -22,9 +22,11 @@ function module() {
   const roof = new Mesh(new BoxGeometry(70, 0.5, 16), new MeshStandardMaterial());
   roof.name = "ROOF_EGGS";
   roof.position.set(0, -8.75, -40);
-  root.add(view, focus, roof);
+  const hens = new Object3D();
+  hens.name = "HENS_EGGS";
+  root.add(view, focus, roof, hens);
   root.updateMatrixWorld(true);
-  return { root, roof };
+  return { root, roof, hens };
 }
 
 function setup(reducedMotion = false) {

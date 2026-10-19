@@ -1,7 +1,7 @@
 // Terrace staging (docs/GDD.md §03.5–7, §06.2–4): first contextualisation on the terrace,
 // viewpoint at the guardrail, roof reveal with a caption on the system shown, then the
 // chain's schematic timeline with one caption per step.
-import { type Object3D, Vector3 } from "three";
+import { Mesh, type Object3D, Vector3 } from "three";
 import { terraceNodes } from "../../core/assetContract";
 import type { EventBus } from "../../core/EventBus";
 import type { GameEvents, GameState } from "../../core/GameState";
@@ -38,6 +38,8 @@ interface Stage {
   view: Object3D;
   focus: Object3D;
   roof: RoofReveal;
+  /** Animals of the farm building: drawn once the roof starts to lift. */
+  hens: Object3D;
   scene: ChainTimeline;
   director: TimelineDirector;
   caption: string | null;
@@ -86,11 +88,18 @@ export class TerraceStage {
     }
     built.roof.reset();
     built.scene.apply(null);
+    const hens = find(n.hens);
+    // Far from the terrace and numerous: they take part in neither the sun's shadow nor ground it.
+    hens.traverse((object) => {
+      if (object instanceof Mesh) object.castShadow = false;
+    });
+    hens.visible = false;
     this.stage = {
       config,
       root,
       view: find(n.view),
       focus: find(n.focus),
+      hens,
       ...built,
       director: new TimelineDirector(config.timeline),
       caption: null,
@@ -102,6 +111,7 @@ export class TerraceStage {
     if (!this.stage) return;
     this.stage.roof.reset();
     this.stage.scene.apply(null);
+    this.stage.hens.visible = false;
     this.stage = null;
     this.deps.hud.setHint(null);
     this.deps.hud.showCaption(null);
@@ -112,6 +122,7 @@ export class TerraceStage {
     const stage = this.stage;
     if (!stage) return;
     const { state } = game.snapshot;
+    stage.hens.visible = stage.roof.progress > 0;
 
     if (state === "TERRACE") {
       const onTerrace = this.isOnTerrace(stage);

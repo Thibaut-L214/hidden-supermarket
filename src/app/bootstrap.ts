@@ -353,6 +353,7 @@ function draw(): void {
   renderer.info.reset();
   sky.follow(camera.position);
   if (postFx?.enabled) {
+    postFx.setOutdoor(atmosphere.outdoor);
     postFx.render(0);
   } else {
     renderer.clear();

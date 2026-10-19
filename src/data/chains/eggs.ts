@@ -11,8 +11,8 @@ export const eggs: ChainConfig = {
   id: "eggs",
   label: "Œufs",
   terrace: TERRACE_EGGS_CONTRACT,
-  // Cages, floor or free range: editorial choice pending (docs/DECISIONS.md).
-  systemType: TODO_SOURCE,
+  // Stacked cages: editorial choice (docs/DECISIONS.md); the sources documenting it are pending.
+  systemType: "Cages",
   terraceCaption: "eggs.terrace",
   revealCaption: "eggs.system",
   captions: [
@@ -26,11 +26,30 @@ export const eggs: ChainConfig = {
     }),
     schematic({
       id: "eggs.system",
-      title: "Système d'élevage",
+      title: "Poules pondeuses en cages",
       short:
-        "Intérieur provisoire : le système représenté (cages, sol ou plein air) reste à choisir et à sourcer.",
+        "Représentation schématique de poules pondeuses en cages superposées, à sourcer avant toute diffusion.",
       detail:
-        "L'aménagement intérieur sera modélisé d'après un système d'élevage documenté, choisi et validé par L214. D'ici là, ces volumes neutres ne décrivent aucune installation.",
+        "Le système représenté est un parti pris éditorial : des poules en cages superposées, regroupées en rangées. Les effectifs, l'espace par poule et la durée de ponte restent à documenter avant toute diffusion ; aucun chiffre n'est avancé ici.",
+      source: TODO_SOURCE,
+      scope: "À définir",
+    }),
+    schematic({
+      id: "eggs.hens.load",
+      title: "Chargement des poules",
+      short:
+        "Des poules sont placées dans des caisses empilées, puis chargées sur un camion de transport.",
+      detail:
+        "Étape illustrée : le déroulé réel (âge des poules, moment du chargement, durée) doit être documenté et validé avant diffusion. Cette étape est distincte de la production des œufs.",
+      source: TODO_SOURCE,
+      scope: "À définir",
+    }),
+    schematic({
+      id: "eggs.hens.leave",
+      title: "Départ du camion",
+      short: "Le camion quitte l'exploitation avec les poules. Sa destination n'est pas montrée.",
+      detail:
+        "La suite du trajet des poules ne fait pas partie de cette scène. Elle sera traitée à part, à partir de sources vérifiées.",
       source: TODO_SOURCE,
       scope: "À définir",
     }),
@@ -46,7 +65,7 @@ export const eggs: ChainConfig = {
       title: "Transport",
       short: "Un camion emporte les caisses vers un centre de tri et de conditionnement.",
       detail:
-        "Le trajet est raccourci pour rester visible. Il s'agit d'un transport d'œufs, pas d'animaux.",
+        "Le trajet est raccourci pour rester visible. Ce camion transporte des œufs ; le transport des poules est une étape distincte, montrée avant.",
     }),
     schematic({
       id: "eggs.process",
@@ -64,9 +83,9 @@ export const eggs: ChainConfig = {
     schematic({
       id: "eggs.recap.system",
       title: "Le système représenté",
-      short: "Le système d'élevage montré reste à choisir et à documenter avant toute diffusion.",
+      short: "Poules pondeuses en cages superposées : une représentation à sourcer et valider avant diffusion.",
       detail:
-        "Les conditions de vie des poules pondeuses diffèrent fortement selon le système. Ce cartel sera rédigé à partir de sources vérifiées une fois le système choisi.",
+        "Les conditions de vie des poules pondeuses diffèrent fortement selon le système. Ce cartel sera rédigé à partir de sources vérifiées pour le système retenu.",
       source: TODO_SOURCE,
       scope: "À définir",
     }),
@@ -74,7 +93,7 @@ export const eggs: ChainConfig = {
       id: "eggs.recap.steps",
       title: "Les étapes",
       short:
-        "Collecte au bâtiment, transport en caisses, tri et conditionnement, puis livraison au magasin.",
+        "Chargement des poules, collecte des œufs, transport en caisses, tri et conditionnement, livraison au magasin.",
       detail:
         "La filière des œufs passe par un centre de conditionnement entre l'élevage et le magasin : elle ne suit pas le même parcours que les filières de viande.",
     }),
@@ -88,6 +107,23 @@ export const eggs: ChainConfig = {
     }),
   ],
   timeline: [
+    {
+      id: "load-hens",
+      event: "load",
+      durationSec: 7,
+      captionId: "eggs.hens.load",
+      from: "HENCRATES_EGGS_HALL",
+      to: "HENCRATES_EGGS_TRUCK",
+      carry: true,
+    },
+    {
+      id: "hens-leave",
+      event: "drive",
+      durationSec: 8,
+      captionId: "eggs.hens.leave",
+      vehicle: "TRUCK_EGGS_ANIMALS",
+      pathId: "PATH_EGGS_ANIMALS",
+    },
     {
       id: "collect",
       event: "collect",

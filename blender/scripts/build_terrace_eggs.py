@@ -36,6 +36,9 @@ ROADS = [
     ((42.0, 111.0), (60.0, 111.0), 6.0),  # packing centre → west
     ((45.0, 8.0), (45.0, 114.0), 6.0),  # down the east side of the farm
     ((14.0, 11.0), (48.0, 11.0), 6.0),  # → in front of the store
+    ((HOUSE_HALF_L + 4.0, 30.0), (54.0, 30.0), 6.0),  # apron south of the egg room → east
+    ((54.0, 30.0), (54.0, 35.0), 6.0),  # → joins the egg road
+    ((78.0, 35.0), (170.0, 35.0), 6.0),  # east, out of the farm
 ]
 FARM_COMPOUND = (-50.0, 18.0, 42.0, 74.0)
 PACKING_YARD = (50.0, 92.0, 106.0, 130.0)
@@ -130,6 +133,15 @@ def landscape(root) -> None:
                 hedges.append(((float(bx), float(by)), (float(bx), float(by + 55))))
             if h % 5 == 1:
                 hedges.append(((float(bx), float(by)), (float(bx + 45), float(by))))
+    def crosses_road(seg) -> bool:
+        (ax, ay), (bx, by) = seg
+        return any(
+            min(ax, bx) <= x1 + 4.0 and max(ax, bx) >= x0 - 4.0 and min(ay, by) <= y1 + 4.0 and max(ay, by) >= y0 - 4.0
+            for x0, y0, x1, y1 in road_rects
+        )
+
+    # No hedge across a road (the farm's roads leave the scene to the east).
+    hedges = [h for h in hedges if not crosses_road(h)]
     rows = [
         ((52.0, 16.0), (52.0, 26.0), "poplar"),
         ((52.0, 44.0), (52.0, 104.0), "poplar"),
@@ -224,21 +236,12 @@ def buildings(root) -> None:
 
 
 def interior(root, y0: float, y1: float) -> None:
-    """Deliberately neutral placeholder: the farming system is not chosen yet (TODO_SOURCE).
-
-    Plain long platforms and a cross collection strip at the east end; no cages, perches or
-    animals, so nothing here can pass for a documented installation.
-    """
-    b = MeshBuilder()
-    floor_z = GROUND_Z + 0.1
-    usable = HOUSE_HALF_L - 3.5
-    rows = 3
-    pitch = (y1 - y0) / (rows + 1)
-    for i in range(1, rows + 1):
-        cy = y0 + i * pitch
-        b.box((-usable, cy - 1.2, floor_z), (usable, cy + 1.2, floor_z + 0.7), M["placeholder"])
-    b.box((usable + 0.8, y0 + 1.0, floor_z), (usable + 2.2, y1 - 1.0, floor_z + 0.9), M["placeholder_alt"])
-    b.build("INTERIOR_EGGS", parent=root)
+    """Laying hens in stacked cages (docs/DECISIONS.md, « Poules »): a schematic depiction of
+    one housing type chosen by the editorial team, not a documented installation. Cage frames
+    are INTERIOR_EGGS; the hens are HENS_EGGS_NN, hidden by the runtime until the roof is off."""
+    hens = empty("HENS_EGGS", (0.0, 0.0, 0.0), root)
+    usable = HOUSE_HALF_L - 4.5
+    props.battery_cages("INTERIOR_EGGS", -usable, usable, y0 + 0.4, y1 - 0.4, GROUND_Z + 0.1, root, hens)
 
 
 def path(route: str, points, parent) -> None:
@@ -248,22 +251,31 @@ def path(route: str, points, parent) -> None:
 
 
 def logistics(root) -> None:
-    """Schematic flow (docs/GDD.md §06.4): collection at the henhouse, crates by truck to the
-    packing centre, packed goods by truck towards the store. No animal transport here."""
+    """Schematic flow (docs/GDD.md §06.4): at the henhouse, hens in crates are loaded onto an
+    animal transport truck that leaves the farm; eggs are collected in crates, taken by truck to
+    the packing centre, and packed goods go by truck towards the store. Where the hens are going
+    is not shown (TODO_SOURCE)."""
     g = GROUND_Z + 0.05
     east = HOUSE_HALF_L
     box("DOCK_EGGS_FARM", (east, 29.0, GROUND_Z), (east + 4.0, 37.0, g), M["road"], root)
     # Units are pallets: crates stacked on pallets read at the terrace's distance.
-    props.unit_group("CRATES_EGGS_COLLECT", (east + 0.4, 30.0, g), [(x, y) for y in range(3) for x in range(2)], props.crate_pallet, root, step=(1.3, 1.5))
+    props.unit_group("CRATES_EGGS_COLLECT", (east + 0.4, 33.2, g), [(x, y) for y in range(3) for x in range(2)], props.crate_pallet, root, step=(1.3, 1.5))
     props.unit_group("CARTONS_EGGS_PACKED", (54.0, 101.0, g), [(x, y) for y in range(2) for x in range(2)], props.carton_pallet, root, step=(1.3, 1.5))
+    # Hen crates wait by the henhouse's service door, then travel to the truck's deck.
+    props.unit_group("HENCRATES_EGGS_HALL", (east + 0.5, 29.2, g), [(x, y) for y in range(4) for x in range(2)], props.hen_module, root, step=(0.95, 0.8))
 
     props.truck("TRUCK_EGGS_FARM", "CARGO_EGGS_FARM", props.crate_pallet, props.M["cab_farm"], (east + 6.0, 35.0, g), root)
+    props.truck(
+        "TRUCK_EGGS_ANIMALS", "HENCRATES_EGGS_TRUCK", props.hen_module, props.M["cab_farm"], (east + 7.0, 30.0, g), root,
+        cells=[(x, y) for y in range(4) for x in range(2)], step=(1.1, 1.3), slats=True,
+    )
     props.truck("TRUCK_EGGS_DELIVERY", "CARGO_EGGS_DELIVERY", props.carton_pallet, props.M["cab_delivery"], (57.0, 111.0, g), root)
 
     props.road_markings(
         "ROAD_EGGS_MARKINGS",
         [
-            ((HOUSE_HALF_L + 4.0, 35.0), (75.0, 35.0)),
+            ((HOUSE_HALF_L + 4.0, 35.0), (170.0, 35.0)),
+            ((HOUSE_HALF_L + 4.0, 30.0), (54.0, 30.0)),
             ((75.0, 35.0), (75.0, 100.0)),
             ((45.0, 111.0), (60.0, 111.0)),
             ((45.0, 11.0), (45.0, 111.0)),
@@ -273,6 +285,7 @@ def logistics(root) -> None:
         root,
     )
 
+    path("ANIMALS", [(east + 7.0, 30.0), (50.0, 30.0), (54.0, 31.5), (55.5, 34.6), (60.0, 35.4), (78.0, 35.5), (120.0, 35.0), (170.0, 35.0)], root)
     path("FARM", [(east + 6.0, 35.0), (56.0, 35.0), (72.0, 35.5), (75.0, 40.0), (75.0, 70.0), (75.0, 96.0)], root)
     path(
         "DELIVERY",

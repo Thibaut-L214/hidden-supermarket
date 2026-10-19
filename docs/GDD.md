@@ -89,7 +89,7 @@ Le toit s’élève ou devient transparent ; les éléments d’une installation
 
 ### 4 — Chaîne / 30–60 s modulables
 
-Les œufs sont collectés, transportés en caisses vers un centre de tri/conditionnement, puis chargés en camion vers le magasin. Ne pas mettre en scène un camion d’animaux vers un abattoir comme trajet de production des œufs ; l’éventuelle fin de vie des poules constitue une étape distincte, à traiter séparément et avec précision.
+Les œufs sont collectés, transportés en caisses vers un centre de tri/conditionnement, puis chargés en camion vers le magasin. Le chargement des poules dans un camion de transport est une étape distincte, montrée avant la collecte (docs/DECISIONS.md) : elle n’est pas le trajet de production des œufs, et la destination des poules n’est pas montrée (ni abattoir, ni fin de vie).
 
 ### 5 — Synthèse / libre
 

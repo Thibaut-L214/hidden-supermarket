@@ -1,8 +1,8 @@
 """Detailed, procedural farm structure and logistics for the eggs terrace (lot 2).
 
 Same method as store_props.py: chamfered parts, credible but stylised, no brand anywhere.
-The henhouse interior stays neutral (the farming system is TODO_SOURCE); only the building
-itself, its structure and the logistics around it are detailed.
+The henhouse interior shows laying hens in stacked cages (docs/DECISIONS.md, « Poules »): a
+schematic depiction, not a documented installation, with no figure attached (TODO_SOURCE).
 Coordinates are the terrace module's Blender frame (metres, Z up), see build_terrace_eggs.py.
 """
 
@@ -44,6 +44,10 @@ def materials() -> None:
     M["forklift"] = material("M_FORKLIFT", "#C9A548", roughness=0.6)
     M["marking"] = material("M_ROAD_MARKING", "#E8E6DF", roughness=0.7)
     M["rail_glass"] = glass("M_RAIL_GLASS", "#D7E1E4", alpha=0.32)
+    M["hen_white"] = material("M_HEN_WHITE", "#E9E4D8", roughness=0.95)
+    M["hen_brown"] = material("M_HEN_BROWN", "#A9825E", roughness=0.95)
+    M["cage"] = material("M_CAGE_FRAME", "#A3AAAE", roughness=0.5, metallic=0.5)
+    M["hen_crate"] = material("M_HEN_CRATE", "#7C8A94", roughness=0.7)
 
 
 # --- henhouse structure ----------------------------------------------------------------------
@@ -230,6 +234,71 @@ def carton_pallet(b: MeshBuilder, x: float, y: float, z: float) -> None:
         b.box((bx, y + 0.015, top), (bx + 0.05, y + 1.185, top + 1.005), M["wrap_band"])
 
 
+# --- laying hens, cages and transport crates --------------------------------------------------
+# Stylised and sober (docs/DA.md §04): simple volumes, regular groups, no gesture, nothing that
+# suggests distress. Seen from the terrace, 20 m and more away, so each hen is a few dozen
+# triangles. They face the aisle they are in.
+
+def hen(b: MeshBuilder, x: float, y: float, z: float, facing: int, brown: bool) -> None:
+    """One hen standing at (x, y, z), its head towards `facing` (±Y)."""
+    mat = M["hen_brown"] if brown else M["hen_white"]
+    b.ellipsoid((x, y, z + 0.14), (0.11, 0.17, 0.12), mat, u=6, v=3)
+    # Head on a short neck; the base and the face towards the body are never seen.
+    hy = y + facing * 0.17
+    b.box((x - 0.035, hy - 0.04, z + 0.2), (x + 0.035, hy + 0.04, z + 0.31), mat)
+
+
+def battery_cages(name: str, x0: float, x1: float, y0: float, y1: float, floor_z: float, parent, hens_parent) -> None:
+    """Rows of stacked cages in the henhouse, three tiers, with one small group of hens in each
+    compartment. Blocks are back to back, with an aisle between blocks. Returns nothing: the
+    frames become `name`, the hens one mesh per row under `hens_parent`."""
+    frame = MeshBuilder()
+    blocks, tiers = 3, 3
+    pitch, depth = 1.5, 0.55
+    aisle = ((y1 - y0) - blocks * 2 * depth) / (blocks + 1)
+    rows = []  # (y_front, facing)
+    for blk in range(blocks):
+        yc = y0 + aisle * (blk + 1) + 2 * depth * blk + depth
+        rows.append((yc - depth, -1, yc - depth, yc))  # south row: front at y_c - depth
+        rows.append((yc + depth, 1, yc, yc + depth))  # north row: front at y_c + depth
+    count = int((x1 - x0) // pitch)
+    for r, (front, facing, ya, yb) in enumerate(rows, start=1):
+        hens = MeshBuilder()
+        for t in range(tiers):
+            z = floor_z + 0.35 + t * 0.55
+            frame.box((x0, ya, z), (x0 + count * pitch, yb, z + 0.03), M["cage"])
+            for bar in (0.17, 0.34):
+                fy = front + facing * 0.01
+                frame.box((x0, min(front, fy) - 0.008, z + bar), (x0 + count * pitch, max(front, fy) + 0.008, z + bar + 0.016), M["cage"])
+            for i in range(count):
+                cx = x0 + (i + 0.5) * pitch
+                for k in range(3):
+                    seed = r * 7919 + t * 104729 + i * 31 + k * 17
+                    jx = ((seed % 11) - 5) * 0.025
+                    jy = (((seed // 11) % 7) - 3) * 0.02
+                    hen(hens, cx + (k - 1) * 0.42 + jx, (ya + yb) / 2 + jy, z + 0.03, facing, (seed // 77) % 3 == 0)
+        # Posts at each compartment boundary, full height of the stack.
+        for i in range(count + 1):
+            px = x0 + i * pitch
+            frame.box((px - 0.015, front - 0.015, floor_z + 0.2), (px + 0.015, front + 0.015, floor_z + 0.35 + tiers * 0.55), M["cage"])
+        hens.drop_bottom_caps().build(f"{hens_parent.name}_{r:02d}", parent=hens_parent)
+    frame.build(name, parent=parent)
+
+
+def hen_module(b: MeshBuilder, x: float, y: float, z: float) -> None:
+    """Stack of five open transport crates (slotted sides) with hens in the top one."""
+    w, d, h = 0.78, 0.56, 0.2
+    for k in range(5):
+        z0 = z + k * h
+        b.box((x, y, z0), (x + w, y + d, z0 + h - 0.01), M["hen_crate"])
+        for sx in (0.12, 0.34, 0.56):
+            b.box((x + sx, y - 0.005, z0 + 0.06), (x + sx + 0.1, y, z0 + 0.15), M["crate_slot"])
+            b.box((x + sx, y + d, z0 + 0.06), (x + sx + 0.1, y + d + 0.005, z0 + 0.15), M["crate_slot"])
+    top = z + 5 * h - 0.01
+    for k in range(4):
+        hen(b, x + 0.1 + k * 0.19, y + d / 2 + (0.07 if k % 2 else -0.07), top - 0.08, 1 if k % 2 else -1, k == 1)
+
+
 def unit_group(name: str, origin, cells: list[tuple[int, int]], unit, parent, step=(1.3, 1.5)):
     """Empty holding one mesh per unit (shown or hidden one by one by the timeline)."""
     group = empty(name, origin, parent)
@@ -241,8 +310,10 @@ def unit_group(name: str, origin, cells: list[tuple[int, int]], unit, parent, st
     return group
 
 
-def truck(name: str, cargo: str, unit, cab_mat, location, parent):
-    """Unbranded rigid truck facing Blender +Y (glTF -Z), origin on the ground at its centre."""
+def truck(name: str, cargo: str, unit, cab_mat, location, parent, cells=None, step=(1.1, 1.75), slats=False):
+    """Unbranded rigid truck facing Blender +Y (glTF -Z), origin on the ground at its centre.
+
+    `slats` adds open-slatted side racks (livestock body); `cells`/`step` lay out the cargo units."""
     root = empty(name, location, parent)
     b = MeshBuilder()
     for x in (-0.55, 0.45):
@@ -273,7 +344,15 @@ def truck(name: str, cargo: str, unit, cab_mat, location, parent):
     for x in (-1.2, 1.14):
         b.box((x, -4.3, 1.3), (x + 0.06, 2.1, 1.5), M["deck"])
     b.box((-1.2, 2.0, 1.3), (1.2, 2.1, 2.7), M["deck"])
+    if slats:
+        # Side racks: posts and four slats a side, open at the rear for loading, open above.
+        for x in (-1.2, 1.14):
+            for y in (-4.3, -2.2, -0.1, 2.04):
+                b.box((x, y, 1.3), (x + 0.06, y + 0.06, 2.7), M["deck"])
+            for z in (1.55, 1.9, 2.25, 2.6):
+                b.box((x, -4.3, z), (x + 0.06, 2.1, z + 0.06), M["deck"])
     bevel(b.build(f"{name}_BODY", parent=root), 0.02)
-    # Six pallets, two abreast, three deep, loaded from the rear.
-    unit_group(cargo, (-1.05, -4.15, 1.3), [(i, j) for j in range(3) for i in range(2)], unit, root, step=(1.1, 1.75))
+    # Pallets or crate stacks, two abreast, loaded from the rear (default: six pallets).
+    cells = cells or [(i, j) for j in range(3) for i in range(2)]
+    unit_group(cargo, (-1.05 if not slats else -0.9, -4.15 if not slats else -4.1, 1.3), cells, unit, root, step=step)
     return root
