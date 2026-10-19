@@ -16,7 +16,7 @@ const ASSETS = [
     blend: "blender/store.blend",
     builder: "blender/scripts/build_store.py",
     glb: "public/assets/store/store.glb",
-    lightmap: true,
+    lightmap: "store",
   },
   {
     blend: "blender/scanner_hand.blend",
@@ -27,6 +27,7 @@ const ASSETS = [
     blend: "blender/terrace_eggs.blend",
     builder: "blender/scripts/build_terrace_eggs.py",
     glb: "public/assets/eggs/terrace_eggs.glb",
+    lightmap: "terrace",
   },
 ];
 
@@ -50,7 +51,7 @@ for (const asset of ASSETS) {
   // Raw export kept out of the repository, then optimised into public/.
   const raw = resolve("blender/out", asset.glb.split("/").pop());
   console.log(`→ export ${raw}`);
-  const flags = [...(noAo ? ["--no-ao"] : []), ...(asset.lightmap ? ["--lightmap"] : [])];
+  const flags = [...(noAo ? ["--no-ao"] : []), ...(asset.lightmap ? [`--lightmap=${asset.lightmap}`] : [])];
   blender([blend, "-P", resolve("blender/scripts/export.py"), "--", raw, ...flags]);
   console.log(`→ optimise ${asset.glb}`);
   // With --no-ao the lightmap is not rebaked: the last one is reused when it exists.
