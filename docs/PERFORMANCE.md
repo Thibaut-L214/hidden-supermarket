@@ -36,6 +36,12 @@ Compteurs de rendu, relevés par image dans le navigateur intégré. Ils ne dép
 
 Le module de terrasse est préchargé dès que le joueur vise le rayon : les portes s'ouvrent sans attente réseau perceptible.
 
+## Relevé du 2026-10-19, après post-processing (GTAO, bloom, SMAA), ciel et environnements
+
+Compteurs par image, passes d'ombre et de post-processing comprises (GTAO redessine la scène une fois pour ses normales). Terrasse, regard sur le garde-corps et l'horizon : 499 draw calls, 674 000 triangles, 60 fps sur la machine de développement (plafonné par la synchronisation verticale, onglet au premier plan).
+
+La qualité réduite (menu pause) coupe tout le post-processing : rendu direct, MSAA du canvas, pixel ratio 1, pas d'ombres. Cible de repli si les machines modestes ne tiennent pas 30 fps : garder le bloom et SMAA, couper GTAO (`POST_SETTINGS` dans `src/app/postprocessing.ts`).
+
 ## Non mesuré
 
 - **fps et p95 réels** : la session de développement tournait dans un onglet en arrière-plan, sans `requestAnimationFrame`. À relever sur les machines cibles (Chrome, Firefox, Safari desktop) avec l'encart `?perf`, en parcourant magasin, terrasse pendant la chaîne et parvis.

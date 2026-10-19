@@ -6,8 +6,10 @@ import {
   HemisphereLight,
   Mesh,
   type Object3D,
-  PCFSoftShadowMap,
+  PCFShadowMap,
   type Scene,
+  type Texture,
+  Vector3,
   type WebGLRenderer,
 } from "three";
 import { DEFAULT_EXPOSURE } from "../app/renderer";
@@ -15,25 +17,56 @@ import { DEFAULT_EXPOSURE } from "../app/renderer";
 /** Time constant of the blend, in seconds. */
 const BLEND_SECONDS = 0.9;
 const OUTDOOR_EXPOSURE = 0.92;
+/** Image-based light of each zone (the baked store panorama, the terrace sky). */
+const STORE_ENVIRONMENT = 0.5;
+/**
+ * Store ambient light. The baked lightmap and GTAO darken it (values below 1 under shelves and
+ * in corners), so it sits above the 1.3 of the unbaked store to keep the high-key ivory look.
+ */
+const STORE_SKY = 1.9;
+const OUTDOOR_ENVIRONMENT = 0.6;
+/** The environment never fades below this share while it is swapped, so the swap is not a flash. */
+const SWAP_FLOOR = 0.35;
+
+/**
+ * Which environment is lit at blend `f`, and how strongly (0 = store, 1 = outdoors). A cube
+ * texture cannot be cross-faded, so the intensity dips to SWAP_FLOOR at the midpoint, where the
+ * texture changes, while the hemisphere lights carry the transition.
+ */
+export function environmentBlend(f: number): { outdoor: boolean; weight: number } {
+  const t = Math.min(1, Math.max(0, f));
+  return { outdoor: t >= 0.5, weight: SWAP_FLOOR + (1 - SWAP_FLOOR) * Math.abs(1 - 2 * t) };
+}
 
 export class Atmosphere {
   /** Current blend: 0 = store lighting, 1 = outdoor lighting. */
   outdoor = 0;
 
-  private readonly storeSky = new HemisphereLight("#fff8ec", "#b9ab90", 1.3);
+  private readonly storeSky = new HemisphereLight("#fff8ec", "#b9ab90", STORE_SKY);
   private readonly storeKey = new DirectionalLight("#fffaf0", 1.4);
   private readonly sky = new HemisphereLight("#dde5ea", "#9c947f", 1.1);
   private readonly sun = new DirectionalLight("#fff1dc", 2.4);
+  private environments: { store: Texture; outdoor: Texture } | null = null;
 
   constructor(
-    scene: Scene,
+    private readonly scene: Scene,
     private readonly renderer: WebGLRenderer,
   ) {
-    this.storeKey.position.set(3, 10, 4);
+    // The key light is flat and shadowless except for the swinging doors of the eggs shelf: a
+    // small shadow frustum over the aisle in front of them (see shadeStore).
+    this.storeKey.position.set(3, 10, -3.5);
+    this.storeKey.target.position.set(0, 0, -7.5);
+    this.storeKey.castShadow = true;
+    this.storeKey.shadow.mapSize.set(1024, 1024);
+    Object.assign(this.storeKey.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 30 });
+    this.storeKey.shadow.camera.updateProjectionMatrix();
+    this.storeKey.shadow.bias = -0.0005;
+    this.storeKey.shadow.normalBias = 0.03;
+    this.storeKey.shadow.radius = 3;
     // Low, slightly ahead and to the left of the view over the farm: controlled backlight.
     // Building-scale shadows only give the outdoor volumes their directional contrast.
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = PCFSoftShadowMap;
+    renderer.shadowMap.type = PCFShadowMap;
     this.sun.target.position.set(0, -23, -55);
     this.sun.position.set(-80, 60, -150);
     this.sun.castShadow = true;
@@ -43,13 +76,36 @@ export class Atmosphere {
     shadow.camera.updateProjectionMatrix();
     shadow.bias = -0.0004;
     shadow.normalBias = 0.08;
-    scene.add(this.storeSky, this.storeKey, this.sky, this.sun, this.sun.target);
+    scene.add(this.storeSky, this.storeKey, this.storeKey.target, this.sky, this.sun, this.sun.target);
     this.apply();
   }
 
-  /** Building-scale sun shadows; off in reduced quality. */
+  /** Unit vector from the scene towards the sun, for the sky dome. */
+  get sunDirection(): Vector3 {
+    return this.sun.position.clone().sub(this.sun.target.position).normalize();
+  }
+
+  /** Image-based lighting per zone; the store one is used until the player is outdoors. */
+  setEnvironments(store: Texture, outdoor: Texture): void {
+    this.environments = { store, outdoor };
+    this.apply();
+  }
+
+  /** Building-scale sun shadows and the doors' shadow; off in reduced quality. */
   setShadows(enabled: boolean): void {
     this.sun.castShadow = enabled;
+    this.storeKey.castShadow = enabled;
+  }
+
+  /** The doors that swing open cast the store's only dynamic shadow, on the floor in front. */
+  shadeStore(root: Object3D): void {
+    root.traverse((object) => {
+      if (!(object instanceof Mesh)) return;
+      if (/^DOOR_EGGS_[LR]/.test(object.name) || object.parent?.name.startsWith("DOOR_EGGS_")) {
+        object.castShadow = true;
+      }
+      if (object.name === "STORE_FLOOR") object.receiveShadow = true;
+    });
   }
 
   /** Lets an outdoor module cast and receive the sun's shadows. */
@@ -67,11 +123,16 @@ export class Atmosphere {
 
   private apply(): void {
     const f = this.outdoor;
-    this.storeSky.intensity = 1.3 * (1 - 0.55 * f);
+    this.storeSky.intensity = STORE_SKY * (1 - 0.55 * f);
     this.storeKey.intensity = 1.4 * (1 - 0.55 * f);
     this.sky.intensity = 1.1 * f;
     this.sun.intensity = 2.4 * f;
     this.renderer.toneMappingExposure =
       DEFAULT_EXPOSURE + (OUTDOOR_EXPOSURE - DEFAULT_EXPOSURE) * f;
+    if (this.environments) {
+      const { outdoor, weight } = environmentBlend(f);
+      this.scene.environment = outdoor ? this.environments.outdoor : this.environments.store;
+      this.scene.environmentIntensity = (outdoor ? OUTDOOR_ENVIRONMENT : STORE_ENVIRONMENT) * weight;
+    }
   }
 }

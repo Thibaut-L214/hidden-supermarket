@@ -47,6 +47,7 @@ Blender attendu dans `/Applications/Blender.app` ; sinon `BLENDER=/chemin/vers/b
 - `blender/scripts/terrace_props.py` : charpente, bardage, silos, quais, palettes, camions et pupitre de la terrasse.
 - `blender/scripts/landscape_props.py` : relief, champs, routes, végétation, clôture et ligne électrique.
 - `blender/scripts/parvis_props.py` : façade, marquise, mobilier du parvis, stand et bénévoles.
+- `blender/scripts/make_textures.py` : sets PBR tileables (`blender/textures/`) ; `surfaces.py` projette les UV à l'export, `lightmap.py` cuit l'éclairage (profils `store`, `terrace`), `bake_env.py` le panorama HDR du magasin.
 - `blender/scripts/build_scanner_hand.py` : main et terminal de scan en vue subjective (`public/assets/shared/`).
 - Occlusion ambiante bakée à l'export (couleur de sommet `AO`) ; `pnpm assets --no-ao` pour itérer vite ; propriété `ao_skip` pour exclure un objet.
 - `node scripts/inspect-glb.mjs <fichier.glb>` : triangles et sommets par nœud.

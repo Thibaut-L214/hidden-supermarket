@@ -1,5 +1,14 @@
-import { Color, Fog, PMREMGenerator, PerspectiveCamera, Scene } from "three";
+import {
+  Color,
+  EquirectangularReflectionMapping,
+  FogExp2,
+  PMREMGenerator,
+  PerspectiveCamera,
+  Scene,
+  type Texture,
+} from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import { AssetError, AssetManager } from "../core/AssetManager";
 import { terraceNodes } from "../core/assetContract";
 import { EventBus } from "../core/EventBus";
@@ -24,12 +33,14 @@ import { SourcePanel } from "../ui/SourcePanel";
 import { Subtitles } from "../ui/Subtitles";
 import { CUE_SUBTITLES, type Cue, playCue } from "../ui/sound";
 import { Atmosphere } from "../world/Atmosphere";
+import { SkyDome, TERRACE_SKY } from "../world/SkyDome";
 import { Soundscape } from "../world/Soundscape";
 import { CollisionWorld } from "../world/CollisionWorld";
 import { FPSController } from "../world/FPSController";
 import { CaptionPanel } from "../world/labels";
 import { EYE_HEIGHT, StoreWorld } from "../world/StoreWorld";
 import { createErrorLog, recoverFromError } from "./errors";
+import { PostProcessing } from "./postprocessing";
 import { createRenderer } from "./renderer";
 import { Session, trackExploration } from "./session";
 import { defaultSettings } from "./settings";
@@ -46,24 +57,27 @@ const status = element<HTMLParagraphElement>("#status");
 // Rendering
 const renderer = createRenderer(canvas);
 const scene = new Scene();
-// Hazy blue-grey horizon (docs/DA.md §03, terrace); fog starts beyond the store's depth.
-const HAZE = new Color("#cfd6d8");
-scene.background = HAZE;
-scene.fog = new Fog(HAZE, 60, 420);
-// Soft image-based lighting for PBR materials; no HDR file to ship.
+// Hazy blue-grey horizon (docs/DA.md §03, terrace): the fog takes the sky's horizon colour, so
+// distant hills fade into the sky dome. Exponential, so the store's depth is barely touched.
+const HAZE = new Color(TERRACE_SKY.horizon);
+scene.fog = new FogExp2(HAZE, 0.0042);
+// Image-based light: a generic room until the baked store panorama is loaded (see `environments`).
 const pmrem = new PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const fallbackEnvironment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environment = fallbackEnvironment;
 scene.environmentIntensity = 0.5;
-pmrem.dispose();
 const camera = new PerspectiveCamera(70, 1, 0.05, 500);
 // Two passes per frame (scene, then the hand-held scanner over it): clear and count manually.
 renderer.autoClear = false;
 renderer.info.autoReset = false;
 /** First-person scanner, once its GLB is loaded (the game works without it). */
 let scannerView: ScannerView | null = null;
+/** GTAO, bloom and SMAA; absent in reduced quality. */
+let postFx: PostProcessing | null = null;
 
 function resize(): void {
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+  postFx?.setSize(canvas.clientWidth, canvas.clientHeight);
   camera.aspect = canvas.clientWidth / canvas.clientHeight;
   camera.updateProjectionMatrix();
   scannerView?.setAspect(camera.aspect);
@@ -82,6 +96,9 @@ const collisions = new CollisionWorld();
 const fps = new FPSController(camera, canvas, collisions, settings, EYE_HEIGHT);
 const hud = new HUD(element("#hud-prompt"), status, element("#caption"));
 const atmosphere = new Atmosphere(scene, renderer);
+const sky = new SkyDome(atmosphere.sunDirection);
+scene.add(sky);
+postFx = new PostProcessing(renderer, scene, camera, [sky]);
 const subtitles = new Subtitles(element("#subtitles"));
 const soundscape = new Soundscape(camera);
 const perf = new PerfMonitor();
@@ -91,10 +108,33 @@ if (new URLSearchParams(location.search).has("perf")) perfOverlay.toggle();
 function applySettings(): void {
   renderer.setPixelRatio(settings.lowQuality ? 1 : Math.min(window.devicePixelRatio, 2));
   atmosphere.setShadows(!settings.lowQuality);
+  if (postFx) postFx.enabled = !settings.lowQuality;
   soundscape.setVolume(settings.volume);
   resize();
 }
 applySettings();
+
+/**
+ * Image-based light per zone: the terrace's is prefiltered from the sky dome itself, the store's
+ * from a panorama baked in Blender (blender/scripts/bake_env.py). A missing panorama keeps the
+ * generic room.
+ */
+const environments: Promise<Texture> = (async () => {
+  const skyScene = new Scene();
+  skyScene.add(new SkyDome(atmosphere.sunDirection));
+  const outdoor = pmrem.fromScene(skyScene, 0.02).texture;
+  let store = fallbackEnvironment;
+  try {
+    const panorama = await new HDRLoader().loadAsync("/assets/shared/env_store.hdr");
+    panorama.mapping = EquirectangularReflectionMapping;
+    store = pmrem.fromEquirectangular(panorama).texture;
+    panorama.dispose();
+  } catch (error) {
+    console.warn("Panorama du magasin indisponible, éclairage générique conservé.", error);
+  }
+  atmosphere.setEnvironments(store, outdoor);
+  return store;
+})();
 
 /** Plays a sound cue and, when subtitles are on, describes it on screen. */
 function cue(kind: Cue): void {
@@ -320,8 +360,13 @@ function frame(now: number): void {
 
 function draw(): void {
   renderer.info.reset();
-  renderer.clear();
-  renderer.render(scene, camera);
+  sky.follow(camera.position);
+  if (postFx?.enabled) {
+    postFx.render(0);
+  } else {
+    renderer.clear();
+    renderer.render(scene, camera);
+  }
   scannerView?.render(renderer);
 }
 
@@ -359,6 +404,7 @@ async function loadStore(): Promise<void> {
   status.dataset.kind = "info";
   try {
     const store = await StoreWorld.load(assets, scene);
+    atmosphere.shadeStore(store.root);
     collisions.addFrom(store.root);
     const spawn = store.spawnPose();
     fps.setPose(spawn.position, spawn.yaw);
@@ -366,7 +412,7 @@ async function loadStore(): Promise<void> {
     // The hand-held scanner is a nicety: a failed load leaves the shelf outline and the prompt.
     scannerView = await ScannerView.load(
       assets,
-      scene.environment,
+      await environments,
       () => settings.reducedMotion,
     ).catch((error: unknown) => {
       console.error(error);

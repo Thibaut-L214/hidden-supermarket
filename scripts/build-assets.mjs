@@ -17,6 +17,8 @@ const ASSETS = [
     builder: "blender/scripts/build_store.py",
     glb: "public/assets/store/store.glb",
     lightmap: "store",
+    // Panorama of the interior: image-based light of the store zone (blender/scripts/bake_env.py).
+    env: "public/assets/shared/env_store.hdr",
   },
   {
     blend: "blender/scanner_hand.blend",
@@ -53,6 +55,10 @@ for (const asset of ASSETS) {
   console.log(`→ export ${raw}`);
   const flags = [...(noAo ? ["--no-ao"] : []), ...(asset.lightmap ? [`--lightmap=${asset.lightmap}`] : [])];
   blender([blend, "-P", resolve("blender/scripts/export.py"), "--", raw, ...flags]);
+  if (asset.env && !noAo) {
+    console.log(`→ panorama ${asset.env}`);
+    blender([blend, "-P", resolve("blender/scripts/bake_env.py"), "--", resolve(asset.env)]);
+  }
   console.log(`→ optimise ${asset.glb}`);
   // With --no-ao the lightmap is not rebaked: the last one is reused when it exists.
   const lightmap = resolve(raw.replace(/\.glb$/, ".lightmap.jpg"));
