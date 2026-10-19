@@ -53,6 +53,25 @@ export class RecapPanel {
       }),
     );
 
+    const transcript = this.root.querySelector(".recap-transcript-body")!;
+    const captionIds = new Set([
+      config.terraceCaption,
+      config.revealCaption,
+      ...config.timeline.map((step) => step.captionId),
+    ]);
+    transcript.replaceChildren(
+      ...[...captionIds].map((id) => {
+        const caption = captionById(config, id);
+        const item = document.createElement("li");
+        const title = document.createElement("strong");
+        title.textContent = caption.title;
+        const text = document.createElement("p");
+        text.textContent = caption.detail;
+        item.append(title, text);
+        return item;
+      }),
+    );
+
     const body = this.root.querySelector(".recap-sources-body")!;
     if (config.sources.length === 0) {
       const empty = document.createElement("p");
@@ -76,7 +95,7 @@ export class RecapPanel {
       );
       body.replaceChildren(list);
     }
-    this.root.querySelector("details")!.open = false;
+    this.root.querySelectorAll("details").forEach((details) => (details.open = false));
 
     this.root.hidden = false;
     this.root.querySelector<HTMLButtonElement>("#recap-replay")!.focus();

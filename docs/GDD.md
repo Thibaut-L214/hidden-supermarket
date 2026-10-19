@@ -20,7 +20,7 @@ Expérience web à la première personne, courte et réexplorable. Promesse : «
 
 | Lot | Inclus | Hors périmètre initial |
 | --- | --- | --- |
-| Prototype | magasin compact, rayon œufs, terrasse, filière et retour, sortie L214 | monde ouvert massif |
+| Prototype | magasin compact, rayons œufs et viande bovine, terrasses, filières et retour, sortie L214 | monde ouvert massif |
 | Extension | volaille, porc, poisson avec scénarios distincts | multijoueur, moteur physique avancé |
 | Production | sourcing et validation de contenus, accessibilité, optimisation | prétention à représenter toutes les exploitations |
 
@@ -103,12 +103,17 @@ Le joueur retourne par la terrasse. Les portes se referment après son passage. 
 
 | Rayon | Parcours représenté | Point de vigilance |
 | --- | --- | --- |
+| Viande bovine | engraissement en bâtiment → transport vivant → attente et amenée à l’abattoir → mise à mort hors champ → réfrigération → découpe/conditionnement → livraison | un système d’engraissement ne représente ni toute la vie du bovin ni toute la viande rouge |
 | Poulet | élevage → camion d’animaux → abattoir suggéré → distribution | âge et pratiques selon filière/source |
 | Porc | élevage → transport vivant → abattage non explicite → découpe → distribution | séparer exploitation type et règles générales |
 | Poisson élevé | aquaculture → récolte/transport → transformation → magasin | espèce et modalité d’abattage spécifiques |
 | Œufs | élevage de pondeuses → collecte → tri/conditionnement → distribution | éviter de confondre œuf et viande |
 
 Chaque filière doit posséder une fiche de validation : territoire, espèce, type de système, provenance des données, scènes non représentatives signalées et sources consultables.
+
+La filière bovine représente un engraissement en bâtiment, sans reproduire un site réel ni attribuer une densité aux effectifs visibles. Les bovins marchent dans les couloirs et sur les rampes ; le camion d’animaux et le camion frigorifique ont des chargements distincts. Le toit révèle l’élevage et les espaces d’attente, tandis que la zone de mise à mort reste opaque. Les cartels nomment l’étourdissement et la saignée sans les montrer. Le joueur observe depuis la terrasse et conserve le retour libre.
+
+Les affirmations et leurs sources figurent dans [la configuration bovine](../src/data/chains/beef.ts). Elles attendent la validation éditoriale. Le récapitulatif propose aussi le parcours complet en texte, consultable sans animation.
 
 ## 08 — Interface pédagogique et contenu
 

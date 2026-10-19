@@ -65,8 +65,8 @@ PROFILES = {
             r"^(PARVIS_|STORE_FACADE|STORE_CANOPY|STORE_SIGN|STORE_SHOP_WINDOWS|VOLUNTEER_|STAND_)"
             r"|(_DOORS$|^STORE_ENTRANCE_DOOR_)"
         ),
-        aisle=re.compile(r"^DOOR_EGGS_[LR]|_GOODS$"),
-        moving=re.compile(r"^DOOR_EGGS_[LR]|_DOORS$|^STORE_ENTRANCE_DOOR_|^STORE_SHOP_WINDOWS$"),
+        aisle=re.compile(r"^DOOR_(EGGS|BEEF)_[LR]|^PRODUCT_SIGN_BEEF_|_GOODS$"),
+        moving=re.compile(r"^DOOR_(EGGS|BEEF)_[LR]|^PRODUCT_SIGN_BEEF_|_DOORS$|^STORE_ENTRANCE_DOOR_|^STORE_SHOP_WINDOWS$"),
         floor="STORE_FLOOR",
         floor_level=0.85,
         aisle_level=0.75,
@@ -98,7 +98,7 @@ PROFILES = {
 def isolation_key(name: str) -> str:
     """Group of parts baked together for occlusion: `CARGO_EGGS_FARM_03` → `CARGO_EGGS_FARM`,
     `DOOR_EGGS_L_GOODS` → `DOOR_EGGS_L` (a door, its goods and eggs; the other door apart)."""
-    return re.sub(r"(_\d+|_BODY|_GOODS|_EGGS)+$", "", name) if not re.match(r"^DOOR_EGGS_[LR]", name) else name[:11]
+    return re.sub(r"(_\d+|_BODY|_GOODS|_EGGS)+$", "", name) if not re.match(r"^DOOR_(EGGS|BEEF)_[LR]", name) else name[:11]
 
 
 def classify(obj: bpy.types.Object, profile: Profile) -> str:

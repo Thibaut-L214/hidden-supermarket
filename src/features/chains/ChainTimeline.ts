@@ -1,13 +1,9 @@
 // Applies a timeline state to a terrace module. The scene is rebuilt from its start state on
 // every frame (start state, then every begun step in order), never moved incrementally: any
 // time gives one pose, whatever happened before (docs/TECH.md §05, replay).
-import {
-  Box3,
-  CatmullRomCurve3,
-  type Object3D,
-  Vector3,
-} from "three";
+import { Box3, CatmullRomCurve3, type Object3D, Vector3 } from "three";
 import { ease } from "../../core/easing";
+import { AnimalWalk } from "./AnimalWalk";
 import type { TimelineStep } from "./ChainModule";
 import type { TimelineState } from "./TimelineDirector";
 
@@ -48,10 +44,12 @@ export class ChainTimeline {
   /** Rest position of every unit that a carry step moves, restored on each apply. */
   private readonly rest = new Map<Object3D, Vector3>();
   private readonly box = new Box3();
+  private readonly walks = new Map<TimelineStep, AnimalWalk>();
 
   constructor(
     root: Object3D,
     private readonly steps: readonly TimelineStep[],
+    reducedMotion: () => boolean = () => false,
   ) {
     const find = (name: string) => {
       const object = root.getObjectByName(name);
@@ -67,7 +65,8 @@ export class ChainTimeline {
         }
       }
       if (step.carry && step.to) {
-        for (const unit of this.groups.get(step.to) ?? []) this.rest.set(unit, unit.position.clone());
+        for (const unit of this.groups.get(step.to) ?? [])
+          this.rest.set(unit, unit.position.clone());
       }
       if (step.event === "drive" && step.vehicle && step.pathId) {
         const vehicle = find(step.vehicle);
@@ -75,6 +74,24 @@ export class ChainTimeline {
         if (points.length < 2) throw new Error(`${step.pathId} : au moins deux points requis`);
         this.paths.set(step.pathId, new CatmullRomCurve3(points, false, "centripetal"));
         this.vehicles.set(step.vehicle, vehicle);
+      }
+      if (step.event === "walk") {
+        const points = step.pathId ? pathPoints(root, step.pathId) : [];
+        if (!step.from || !step.to || points.length < 2) {
+          throw new Error(
+            `${step.pathId ?? step.id} : marche avec deux groupes et au moins deux points requise`,
+          );
+        }
+        this.walks.set(
+          step,
+          new AnimalWalk(
+            root,
+            this.groups.get(step.from)!,
+            this.groups.get(step.to)!,
+            points,
+            reducedMotion,
+          ),
+        );
       }
     }
 
@@ -84,6 +101,7 @@ export class ChainTimeline {
   /** Poses the module for a timeline state; null gives the start state. */
   apply(state: TimelineState | null): void {
     for (const [unit, position] of this.rest) unit.position.copy(position);
+    for (const walk of this.walks.values()) walk.reset();
     for (const [name, units] of this.groups) {
       const shown = this.initiallyFull.has(name) ? units.length : 0;
       units.forEach((unit, i) => (unit.visible = i < shown));
@@ -101,6 +119,10 @@ export class ChainTimeline {
   }
 
   private applyStep(step: TimelineStep, p: number): void {
+    if (step.event === "walk") {
+      this.walks.get(step)!.apply(p);
+      return;
+    }
     if (step.event === "drive") {
       this.drive(step, ease(p));
       return;
@@ -149,7 +171,10 @@ export class ChainTimeline {
     const from = this.centre(source, new Vector3());
     const to = this.centre(target, new Vector3());
     // Offset between the slots, in the target's parent frame, shrinking to zero on arrival.
-    const offset = parent.worldToLocal(from).sub(parent.worldToLocal(to)).multiplyScalar(1 - e);
+    const offset = parent
+      .worldToLocal(from)
+      .sub(parent.worldToLocal(to))
+      .multiplyScalar(1 - e);
     offset.y += Math.sin(Math.PI * q) * CARRY_ARC;
     target.position.copy(this.rest.get(target) ?? target.position).add(offset);
   }

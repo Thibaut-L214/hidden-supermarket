@@ -45,7 +45,7 @@ export function terraceNodes(chain: ChainId) {
     roof: `ROOF_${id}`,
     interior: `INTERIOR_${id}`,
     /** Animals of the farm building, shown once the roof is off. */
-    hens: `HENS_${id}`,
+    animals: chain === "eggs" ? "HENS_EGGS" : `ANIMALS_${id}`,
   } as const;
 }
 
@@ -75,12 +75,20 @@ export const EXIT_NODES = {
 } as const;
 
 const eggsShelf = shelfContract("eggs");
+const beefShelf = shelfContract("beef");
 
 export const STORE_CONTRACT: AssetContract = {
   url: assetUrl("assets/store/store.glb"),
-  required: ["STORE_ROOT", "SPAWN_PLAYER", ...Object.values(EXIT_NODES), ...eggsShelf.required],
+  required: [
+    "STORE_ROOT",
+    "SPAWN_PLAYER",
+    ...Object.values(EXIT_NODES),
+    ...eggsShelf.required,
+    ...beefShelf.required,
+  ],
   parents: {
     ...eggsShelf.parents,
+    ...beefShelf.parents,
     COL_ENTRANCE_DOOR_L: EXIT_NODES.doorL,
     COL_ENTRANCE_DOOR_R: EXIT_NODES.doorR,
   },
@@ -108,6 +116,39 @@ export const TERRACE_EGGS_CONTRACT: AssetContract = {
     [eggsTerrace.roof]: eggsTerrace.root,
   },
   // Guardrails on three sides of the terrace.
+  prefixes: [{ prefix: "COL_RAIL_", min: 3 }],
+};
+
+const beefTerrace = terraceNodes("beef");
+
+export const TERRACE_BEEF_CONTRACT: AssetContract = {
+  url: assetUrl("assets/beef/terrace_beef.glb"),
+  required: [
+    ...Object.values(beefTerrace),
+    "BUILDING_BEEF_FARM",
+    "ABATTOIR_BEEF",
+    "COLD_ROOM_BEEF",
+    "CUTTING_BEEF",
+    "PACKING_BEEF",
+    "TRUCK_BEEF_ANIMALS",
+    "TRUCK_BEEF_DELIVERY",
+    "CATTLE_BEEF_FARM",
+    "CATTLE_BEEF_TRUCK",
+    "CATTLE_BEEF_WAITING",
+    "CATTLE_BEEF_APPROACH",
+    "MEAT_BEEF_CHILLED",
+    "MEAT_BEEF_CUT",
+    "CARTONS_BEEF_PACKED",
+    "CARGO_BEEF_DELIVERY",
+  ],
+  parents: {
+    [beefTerrace.view]: beefTerrace.root,
+    [beefTerrace.focus]: beefTerrace.root,
+    [beefTerrace.roof]: beefTerrace.root,
+    CATTLE_BEEF_FARM: beefTerrace.animals,
+    CATTLE_BEEF_TRUCK: "TRUCK_BEEF_ANIMALS",
+    CARGO_BEEF_DELIVERY: "TRUCK_BEEF_DELIVERY",
+  },
   prefixes: [{ prefix: "COL_RAIL_", min: 3 }],
 };
 

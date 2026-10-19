@@ -13,7 +13,7 @@ import type { Caption, SourceRef, TODO_SOURCE } from "../content/types";
  */
 export interface TimelineStep {
   id: string;
-  event: "collect" | "load" | "drive" | "process" | "deliver";
+  event: "collect" | "load" | "walk" | "drive" | "process" | "deliver";
   durationSec: number;
   captionId: string;
   from?: string;
@@ -21,6 +21,7 @@ export interface TimelineStep {
   /** Units travel between their slots (load steps). */
   carry?: boolean;
   vehicle?: string;
+  /** Vehicle route, or intermediate ground/ramp waypoints for a walk between animal groups. */
   pathId?: string;
 }
 

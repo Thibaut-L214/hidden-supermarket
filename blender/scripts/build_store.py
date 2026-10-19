@@ -84,7 +84,7 @@ def inner_walls(root) -> None:
         return max(1, round(length / 0.5))
 
     # North (faces -Y), around the eggs opening.
-    for x0, x1, z0, z1 in ((-hx, -OPENING_HALF_W, 0, h), (OPENING_HALF_W, hx, 0, h), (-OPENING_HALF_W, OPENING_HALF_W, OPENING_H, h)):
+    for x0, x1, z0, z1 in ((-hx, -OPENING_HALF_W, 0, h), (OPENING_HALF_W, 4.5, 0, h), (7.5, hx, 0, h), (-OPENING_HALF_W, OPENING_HALF_W, OPENING_H, h), (4.5, 7.5, OPENING_H, h)):
         g.grid((x0, hy - e, z0), (x1 - x0, 0, 0), (0, 0, z1 - z0), (cells(x1 - x0), cells(z1 - z0)), M["wall"])
     # South (faces +Y), around the entrance.
     for x0, x1, z0, z1 in ((-hx, -ENTRANCE_HALF_W, 0, h), (ENTRANCE_HALF_W, hx, 0, h), (-ENTRANCE_HALF_W, ENTRANCE_HALF_W, 2.6, h)):
@@ -97,10 +97,11 @@ def inner_walls(root) -> None:
     trim = MeshBuilder()
     for z0, z1, mat in ((0.0, 0.1, M["skirting"]), (3.05, 3.2, M["accent"])):
         # Openings interrupt the trim only below their lintel.
-        for x0, x1 in ((-hx, -OPENING_HALF_W), (OPENING_HALF_W, hx)):
+        for x0, x1 in ((-hx, -OPENING_HALF_W), (OPENING_HALF_W, 4.5), (7.5, hx)):
             trim.box((x0, hy - 0.02, z0), (x1, hy, z1), mat)
         if z0 > OPENING_H:
             trim.box((-OPENING_HALF_W, hy - 0.02, z0), (OPENING_HALF_W, hy, z1), mat)
+            trim.box((4.5, hy - 0.02, z0), (7.5, hy, z1), mat)
         for x0, x1 in ((-hx, -ENTRANCE_HALF_W), (ENTRANCE_HALF_W, hx)):
             trim.box((x0, -hy, z0), (x1, -hy + 0.02, z1), mat)
         if z0 > 2.6:
@@ -125,7 +126,9 @@ def shell(root) -> None:
     walls = {
         # North wall, split around the eggs opening.
         "N_W": ((-HALF_X, HALF_Y, -0.1), (-OPENING_HALF_W, HALF_Y + WALL, HEIGHT)),
-        "N_E": ((OPENING_HALF_W, HALF_Y, -0.1), (HALF_X, HALF_Y + WALL, HEIGHT)),
+        "N_E": ((OPENING_HALF_W, HALF_Y, -0.1), (4.5, HALF_Y + WALL, HEIGHT)),
+        "N_BEEF_E": ((7.5, HALF_Y, -0.1), (HALF_X, HALF_Y + WALL, HEIGHT)),
+        "N_BEEF_LINTEL": ((4.5, HALF_Y, OPENING_H), (7.5, HALF_Y + WALL, HEIGHT)),
         "N_LINTEL": ((-OPENING_HALF_W, HALF_Y, OPENING_H), (OPENING_HALF_W, HALF_Y + WALL, HEIGHT)),
         # South wall, split around the entrance.
         "S_W": ((-HALF_X, -HALF_Y - WALL, -0.1), (-ENTRANCE_HALF_W, -HALF_Y, HEIGHT)),
@@ -354,6 +357,8 @@ def main() -> None:
     shell(root)
     generic_shelving(root)
     eggs_shelf(root)
+    from beef_store import beef_shelf
+    beef_shelf(root, M)
     parvis(root)
     save_blend(os.path.abspath(argv[0]))
 

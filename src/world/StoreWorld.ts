@@ -33,7 +33,7 @@ export class StoreWorld {
       if (typeof label !== "string") return;
       if (/^AISLE_SIGN_\d+$/.test(object.name)) {
         createSignLabel(object, label, true).forEach((face) => object.add(face));
-      } else if (object.name === "STORE_SIGN") {
+      } else if (object.name === "STORE_SIGN" || object.name.startsWith("PRODUCT_SIGN_")) {
         object.add(createSignLabel(object, label));
       }
     });

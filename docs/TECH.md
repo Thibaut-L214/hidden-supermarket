@@ -74,35 +74,9 @@ tests/{state.test.ts,timeline.test.ts,assets.test.ts}
 
 ### Interface de module
 
-type ChainId = "eggs" \| "chicken" \| "pork" \| "fish";
+Les filières disponibles et leurs identifiants figurent dans [le registre](../src/data/chains/index.ts) et [ChainId](../src/core/chain.ts). [ChainConfig et TimelineStep](../src/features/chains/ChainModule.ts) définissent les contenus, le contrat du modèle 3D et les événements de chaque parcours.
 
-interface ChainConfig {
-
-id: ChainId;
-
-shelfRoot: string;
-
-assetUrl: string;
-
-timeline: TimelineStep[];
-
-sources: SourceRef[];
-
-exitAnchor: string;
-
-}
-
-interface TimelineStep {
-
-id: string;
-
-event: "revealRoof" \| "load" \| "drive" \| "process" \| "deliver";
-
-durationSec: number;
-
-captionId: string;
-
-}
+L’événement `walk` déplace des animaux entre deux groupes, via des points de passage au sol ou sur rampe. Les groupes conservent le même ordre et les origines des animaux se placent au niveau des sabots. Le moteur recalcule le départ après les déplacements précédents du camion, puis restaure positions et articulations au rejeu. La réduction des mouvements désactive l’animation des pattes tout en conservant le déplacement nécessaire à la compréhension du parcours.
 
 ### Règle de dépendances
 

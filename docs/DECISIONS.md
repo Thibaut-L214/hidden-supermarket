@@ -33,7 +33,7 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 
 ## Contrats de données
 
-- `TimelineStep.event` : `"collect" | "load" | "drive" | "process" | "deliver"` ; `carry: true` (étape `load`) fait voyager visiblement les unités, une à une, de leur place dans `from` à la place correspondante dans `to`. Au lieu d'un tableau `targets` positionnel, des champs nommés : `from` / `to` (groupes dont les enfants apparaissent ou disparaissent un à un) pour collect, load, process, deliver ; `vehicle` + `pathId` pour drive.
+- `TimelineStep.event` : `"collect" | "load" | "walk" | "drive" | "process" | "deliver"` ; `carry: true` (étape `load`) fait voyager visiblement les unités, une à une, de leur place dans `from` à la place correspondante dans `to`. Au lieu d'un tableau `targets` positionnel, des champs nommés : `from` / `to` (groupes dont les enfants apparaissent ou disparaissent un à un) pour collect, load, process, deliver ; `vehicle` + `pathId` pour drive. `walk` utilise `from`, `to` et `pathId` pour faire marcher les bovins sur un couloir et une rampe, sans l'arc des caisses portées. Les origines se placent au sol ; les groupes conservent les mêmes effectifs et le même ordre. Le rejeu restaure positions et articulations.
 - La scène d'une chaîne est une fonction pure du temps écoulé : état initial, puis chaque étape commencée dans l'ordre. Pause, replay et reprise sont donc déterministes.
 - `ChainConfig` : `captions`, `terraceCaption`, `revealCaption`, `timeline`, `recap` (3 cartels max), `sources`, `systemType`. `exitAnchor` est abandonné (le retour s'appuie sur la façade du rayon).
 - Fin de chaîne : le panneau récapitulatif libère le pointeur et propose « Revoir la chaîne », « Revenir au magasin » et « Rester sur la terrasse » ; les sources sont dans un `<details>` accessible au clavier.
@@ -67,7 +67,7 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 
 ## Terrasse et révélation
 
-- Terrasse à 24 m au-dessus du sol, hangar proche et bas : depuis le garde-corps, le mur avant masque peu l'intérieur une fois le toit retiré.
+- Terrasse œufs à 24 m au-dessus du sol, hangar proche et bas : depuis le garde-corps, le mur avant masque peu l'intérieur une fois le toit retiré. La terrasse bovine domine son sol de 12 m pour garder les bovins et leurs déplacements lisibles dans un site plus compact.
 - Intérieur du hangar volontairement neutre (plateformes, bande de collecte) tant que le système d'élevage n'est pas choisi ; un cartel « Contenu provisoire » le signale.
 - Toit : levée de 4 m et fondu en 3 s ; fondu seul en mode « Réduire les mouvements ». Le toit ne se referme qu'au déchargement du module.
 - Cadrage facultatif vers le hangar à l'entrée en `REVEAL`, interrompu par tout mouvement de souris, désactivé en mode réduit.

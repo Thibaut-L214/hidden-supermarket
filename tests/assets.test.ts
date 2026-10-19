@@ -6,12 +6,14 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   SCANNER_CONTRACT,
   STORE_CONTRACT,
+  TERRACE_BEEF_CONTRACT,
   TERRACE_EGGS_CONTRACT,
   checkContract,
   type AssetContract,
   type ContractNode,
 } from "../src/core/assetContract";
 import { eggs } from "../src/data/chains/eggs";
+import { beef } from "../src/data/chains/beef";
 
 /** Reader for the optimised GLBs (meshopt-compressed, quantised). */
 async function reader(): Promise<NodeIO> {
@@ -64,30 +66,33 @@ describe("checkContract", () => {
   });
 });
 
-describe.each([STORE_CONTRACT, TERRACE_EGGS_CONTRACT, SCANNER_CONTRACT])("$url", (contract) => {
-  let doc: Document;
+describe.each([STORE_CONTRACT, TERRACE_EGGS_CONTRACT, TERRACE_BEEF_CONTRACT, SCANNER_CONTRACT])(
+  "$url",
+  (contract) => {
+    let doc: Document;
 
-  beforeAll(async () => {
-    doc = await (await reader()).read(publicAssetPath(contract.url));
-  });
+    beforeAll(async () => {
+      doc = await (await reader()).read(publicAssetPath(contract.url));
+    });
 
-  it("honours the naming contract", () => {
-    expect(checkContract(contractNodes(doc), contract)).toEqual([]);
-  });
+    it("honours the naming contract", () => {
+      expect(checkContract(contractNodes(doc), contract)).toEqual([]);
+    });
 
-  it("keeps every node at unit scale (transforms applied before export)", () => {
-    const scaled = doc
-      .getRoot()
-      .listNodes()
-      .filter((node) => node.getScale().some((s) => Math.abs(s - 1) > 1e-6))
-      .map((node) => node.getName());
-    expect(scaled).toEqual([]);
-  });
-});
+    it("keeps every node at unit scale (transforms applied before export)", () => {
+      const scaled = doc
+        .getRoot()
+        .listNodes()
+        .filter((node) => node.getScale().some((s) => Math.abs(s - 1) > 1e-6))
+        .map((node) => node.getName());
+      expect(scaled).toEqual([]);
+    });
+  },
+);
 
-describe("eggs timeline objects", () => {
+describe.each([eggs, beef])("$id timeline objects", (chain) => {
   it("exist in the terrace GLB, with at least two points per path", async () => {
-    const doc = await (await reader()).read(publicAssetPath(TERRACE_EGGS_CONTRACT.url));
+    const doc = await (await reader()).read(publicAssetPath(chain.terrace.url));
     const names = new Set(
       doc
         .getRoot()
@@ -95,7 +100,7 @@ describe("eggs timeline objects", () => {
         .map((n) => n.getName()),
     );
     const missing: string[] = [];
-    for (const step of eggs.timeline) {
+    for (const step of chain.timeline) {
       for (const name of [step.from, step.to, step.vehicle]) {
         if (name && !names.has(name)) missing.push(name);
       }

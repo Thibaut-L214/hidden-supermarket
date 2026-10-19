@@ -39,7 +39,7 @@ interface Stage {
   focus: Object3D;
   roof: RoofReveal;
   /** Animals of the farm building: drawn once the roof starts to lift. */
-  hens: Object3D;
+  animals: Object3D;
   scene: ChainTimeline;
   director: TimelineDirector;
   caption: string | null;
@@ -82,24 +82,24 @@ export class TerraceStage {
     if (!built) {
       built = {
         roof: new RoofReveal(find(n.roof), this.deps.reducedMotion),
-        scene: new ChainTimeline(root, config.timeline),
+        scene: new ChainTimeline(root, config.timeline, this.deps.reducedMotion),
       };
       this.built.set(root, built);
     }
     built.roof.reset();
     built.scene.apply(null);
-    const hens = find(n.hens);
+    const animals = find(n.animals);
     // Far from the terrace and numerous: they take part in neither the sun's shadow nor ground it.
-    hens.traverse((object) => {
+    animals.traverse((object) => {
       if (object instanceof Mesh) object.castShadow = false;
     });
-    hens.visible = false;
+    animals.visible = false;
     this.stage = {
       config,
       root,
       view: find(n.view),
       focus: find(n.focus),
-      hens,
+      animals,
       ...built,
       director: new TimelineDirector(config.timeline),
       caption: null,
@@ -111,7 +111,7 @@ export class TerraceStage {
     if (!this.stage) return;
     this.stage.roof.reset();
     this.stage.scene.apply(null);
-    this.stage.hens.visible = false;
+    this.stage.animals.visible = false;
     this.stage = null;
     this.deps.hud.setHint(null);
     this.deps.hud.showCaption(null);
@@ -122,7 +122,7 @@ export class TerraceStage {
     const stage = this.stage;
     if (!stage) return;
     const { state } = game.snapshot;
-    stage.hens.visible = stage.roof.progress > 0;
+    stage.animals.visible = stage.roof.progress > 0;
 
     if (state === "TERRACE") {
       const onTerrace = this.isOnTerrace(stage);
