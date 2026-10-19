@@ -1,6 +1,6 @@
 // Eggs shelf (docs/GDD.md §06). Verified statements cite their source; scene-specific movements
 // remain explicitly schematic. Editorial review is still required before publication.
-import { TERRACE_EGGS_CONTRACT } from "../../core/assetContract";
+import { EGGS_MARKER_ANCHORS, TERRACE_EGGS_CONTRACT } from "../../core/assetContract";
 import type { ChainConfig } from "../../features/chains/ChainModule";
 import type { Caption, SourceRef } from "../../features/content/types";
 
@@ -58,6 +58,14 @@ export const eggs: ChainConfig = {
         "Distances et durées sont compressées : ce paysage illustre des étapes, pas un site réel.",
       detail:
         "Les bâtiments, la route et le centre de conditionnement sont rapprochés pour être visibles depuis la terrasse. Leur disposition ne reproduit aucune exploitation existante.",
+    }),
+    schematic({
+      id: "eggs.site",
+      title: "Un site, plusieurs bâtiments",
+      short:
+        "Les bâtiments se répètent pour figurer l’échelle d’un site. Leur nombre est schématique, pas une donnée.",
+      detail:
+        "Des bâtiments identiques se succèdent pour montrer l’aspect répétitif d’un site d’élevage. Cette scène ne dit ni le nombre de bâtiments ni celui des poules d’une exploitation réelle.",
     }),
     verified({
       id: "eggs.system",
@@ -222,6 +230,10 @@ export const eggs: ChainConfig = {
       vehicle: "TRUCK_EGGS_ANIMALS",
       pathId: "PATH_EGGS_ANIMALS",
     },
+  ],
+  markers: [
+    { anchor: EGGS_MARKER_ANCHORS[0], captionId: "eggs.system" },
+    { anchor: EGGS_MARKER_ANCHORS[1], captionId: "eggs.site" },
   ],
   recap: ["eggs.recap.system", "eggs.recap.steps", "eggs.recap.scope"],
   sources: [EU_LAYING_HENS, EU_EGGS_MARKETING, FR_EGGS_PRODUCTION, EFSA_POULTRY_TRANSPORT],

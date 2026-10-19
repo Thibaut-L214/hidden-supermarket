@@ -38,7 +38,9 @@ ROADS = [
     ((14.0, 11.0), (49.0, 11.0), 6.0),  # → in front of the store
     ((HOUSE_HALF_L + 4.0, 28.0), (49.0, 28.0), 6.0),  # apron south of the egg room (animal truck) → joins x = 49
 ]
-FARM_COMPOUND = (-50.0, 18.0, 42.0, 74.0)
+# Five identical long houses in a row (docs/DA.md §06: repeated long volumes); only the nearest opens.
+HOUSE_ROWS = [(26.0, 42.0), (50.0, 66.0), (74.0, 90.0), (98.0, 114.0), (122.0, 138.0)]
+FARM_COMPOUND = (-50.0, 18.0, 42.0, 142.0)
 PACKING_YARD = (50.0, 92.0, 106.0, 130.0)
 # Behind the store, the plateau that carries the forecourt (store GLB, ground at -0.7).
 PLATEAU, PLATEAU_Z = (-45.0, -100.0, 45.0, -19.0), -0.8
@@ -153,7 +155,7 @@ def landscape(root) -> None:
     land.vegetation("LAND_EGGS", terrain, rows, groves, hedges, root)
 
     # The fence is open on the east side where the apron roads leave the farm.
-    land.perimeter_fence("FENCE_EGGS_FARM", (-48.0, 20.0, 40.5, 72.0), [(40.0, 25.0, 41.0, 40.0)], GROUND_Z, root)
+    land.perimeter_fence("FENCE_EGGS_FARM", (-48.0, 20.0, 40.5, 140.0), [(40.0, 25.0, 41.0, 40.0)], GROUND_Z, root)
     land.power_line("POWER_LINE_EGGS", terrain, [(210.0, 140.0), (150.0, 120.0), (103.0, 118.0), (103.0, 82.0), (84.0, 48.0), (41.5, 46.0)], root)
 
     hills = MeshBuilder()
@@ -202,19 +204,28 @@ def buildings(root) -> None:
     interior(root, near_y0, near_y1)
     empty("ANCHOR_EGGS_FOCUS", (0.0, (near_y0 + near_y1) / 2, GROUND_Z + 1.0), root)
 
-    far = hollow_house("BUILDING_EGGS_FARM_2", 50.0, 66.0, root)
-    gable_roof("BUILDING_EGGS_FARM_2_ROOF", (-HOUSE_HALF_L - 0.6, 49.4, roof_z), (HOUSE_HALF_L + 0.6, 66.6, roof_z + 0.3), 2.2, M["farm_roof"], far)
+    # The other houses stay closed: same walls, same roof, nothing to lift.
+    silo_ys = [30.0, 36.0]
+    for n, (y0, y1) in enumerate(HOUSE_ROWS[1:], start=2):
+        far = hollow_house(f"BUILDING_EGGS_FARM_{n}", y0, y1, root)
+        gable_roof(f"BUILDING_EGGS_FARM_{n}_ROOF", (-HOUSE_HALF_L - 0.6, y0 - 0.6, roof_z), (HOUSE_HALF_L + 0.6, y1 + 0.6, roof_z + 0.3), 2.2, M["farm_roof"], far)
+        silo_ys += [y0 + 4.0, y0 + 10.0]
 
-    # Feed silos at the west end of the henhouses.
+    # Feed silos at the west end of every house.
     silos = MeshBuilder()
-    for i, y in enumerate((30.0, 36.0, 54.0)):
+    for y in silo_ys:
         x = -HOUSE_HALF_L - 4.0
         silos.cylinder((x, y, GROUND_Z + 1.2), 1.6, 6.5, M["silo"], segments=18)
         silos.cone((x, y, GROUND_Z + 7.7), 1.65, 1.4, M["silo"], segments=18)
         for lx, ly in ((-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)):
             silos.box((x + lx - 0.08, y + ly - 0.08, GROUND_Z), (x + lx + 0.08, y + ly + 0.08, GROUND_Z + 1.3), M["truck_bed"])
     bevel(silos.build("SILOS_EGGS", parent=root), 0.02)
-    props.silo_details("SILOS_EGGS_DETAILS", [(-HOUSE_HALF_L - 4.0, y) for y in (30.0, 36.0, 54.0)], -HOUSE_HALF_L, GROUND_Z, root)
+    props.silo_details("SILOS_EGGS_DETAILS", [(-HOUSE_HALF_L - 4.0, y) for y in silo_ys], -HOUSE_HALF_L, GROUND_Z, root)
+
+    # Framing and information anchors: the whole row from the terrace, the cages, the repetition.
+    empty("ANCHOR_EGGS_WIDE", (0.0, 84.0, GROUND_Z + 2.0), root)
+    empty("ANCHOR_EGGS_MARK_CAGES", (-14.0, (near_y0 + near_y1) / 2, GROUND_Z + 3.4), root)
+    empty("ANCHOR_EGGS_MARK_SITE", (-24.0, 106.0, GROUND_Z + 6.5), root)
 
     box("PACKING_EGGS_CENTER", (60.0, 100.0, GROUND_Z), (95.0, 125.0, GROUND_Z + 8.0), M["plant"], root)
     details = MeshBuilder()

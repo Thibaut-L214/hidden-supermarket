@@ -25,6 +25,14 @@ export interface TimelineStep {
   pathId?: string;
 }
 
+/** An information marker floating over a node of the terrace once the roof is off. */
+export interface StageMarker {
+  /** Node name of the anchor in the terrace GLB. */
+  anchor: string;
+  /** Caption it shows: sourced facts stay in captions, never in the marker itself. */
+  captionId: string;
+}
+
 /** What a shelf brings to the shared systems (docs/TECH.md §04). */
 export interface ChainConfig {
   id: ChainId;
@@ -40,6 +48,8 @@ export interface ChainConfig {
   /** Caption shown when the roof comes off: what system the interior represents. */
   revealCaption: string;
   timeline: readonly TimelineStep[];
+  /** Markers over the site, shown from the reveal on. */
+  markers?: readonly StageMarker[];
   /** At most three caption ids for the recap (docs/GDD.md §06.5). */
   recap: readonly string[];
   sources: readonly SourceRef[];

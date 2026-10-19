@@ -259,7 +259,7 @@ def battery_cages(name: str, x0: float, x1: float, y0: float, y1: float, floor_z
     compartment. Blocks are back to back, with an aisle between blocks. Returns nothing: the
     frames become `name`, the hens one mesh per row under `hens_parent`."""
     frame = MeshBuilder()
-    blocks, tiers = 3, 3
+    blocks, tiers = 4, 3
     pitch, depth = 1.5, 0.55
     aisle = ((y1 - y0) - blocks * 2 * depth) / (blocks + 1)
     rows = []  # (y_front, facing)

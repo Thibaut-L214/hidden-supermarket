@@ -42,6 +42,8 @@ export function terraceNodes(chain: ChainId) {
     root: `TERRACE_${id}_ROOT`,
     view: `ANCHOR_${id}_VIEW`,
     focus: `ANCHOR_${id}_FOCUS`,
+    /** Wide framing of the whole site, once the roof is off. */
+    wide: `ANCHOR_${id}_WIDE`,
     roof: `ROOF_${id}`,
     interior: `INTERIOR_${id}`,
     /** Animals of the farm building, shown once the roof is off. */
@@ -98,6 +100,10 @@ export const STORE_CONTRACT: AssetContract = {
   ],
 };
 
+/** Anchors of the information markers shown over the site (src/features/chains/StageMarkers). */
+export const EGGS_MARKER_ANCHORS = ["ANCHOR_EGGS_MARK_CAGES", "ANCHOR_EGGS_MARK_SITE"] as const;
+export const BEEF_MARKER_ANCHORS = ["ANCHOR_BEEF_MARK_CROWD", "ANCHOR_BEEF_MARK_SITE"] as const;
+
 const eggsTerrace = terraceNodes("eggs");
 
 export const TERRACE_EGGS_CONTRACT: AssetContract = {
@@ -109,6 +115,7 @@ export const TERRACE_EGGS_CONTRACT: AssetContract = {
     "TRUCK_EGGS_ANIMALS",
     "HENCRATES_EGGS_HALL",
     "HENCRATES_EGGS_TRUCK",
+    ...EGGS_MARKER_ANCHORS,
   ],
   parents: {
     [eggsTerrace.view]: eggsTerrace.root,
@@ -140,6 +147,7 @@ export const TERRACE_BEEF_CONTRACT: AssetContract = {
     "MEAT_BEEF_CUT",
     "CARTONS_BEEF_PACKED",
     "CARGO_BEEF_DELIVERY",
+    ...BEEF_MARKER_ANCHORS,
   ],
   parents: {
     [beefTerrace.view]: beefTerrace.root,

@@ -2,6 +2,7 @@
 // the store stays broad and even; outside, a low sun and a hazy sky take over gradually.
 // Changes are damped, so crossing the threshold never flashes.
 import {
+  Color,
   DirectionalLight,
   HemisphereLight,
   Mesh,
@@ -27,6 +28,11 @@ const STORE_SKY = 1.9;
 const OUTDOOR_ENVIRONMENT = 0.6;
 /** The environment never fades below this share while it is swapped, so the swap is not a flash. */
 const SWAP_FLOOR = 0.35;
+/** Time constant of the "industrial" mood, in seconds: slower than the zone blend. */
+const MOOD_SECONDS = 1.6;
+const COLD_SKY = new Color("#c3d2dc");
+const COLD_GROUND = new Color("#8a8a80");
+const COLD_SUN = new Color("#f2f0ea");
 
 /**
  * Which environment is lit at blend `f`, and how strongly (0 = store, 1 = outdoors). A cube
@@ -41,11 +47,17 @@ export function environmentBlend(f: number): { outdoor: boolean; weight: number 
 export class Atmosphere {
   /** Current blend: 0 = store lighting, 1 = outdoor lighting. */
   outdoor = 0;
+  /** Current mood: 0 = natural light, 1 = cooler, flatter light over an industrial site. */
+  mood = 0;
+  private moodTarget = 0;
 
   private readonly storeSky = new HemisphereLight("#fff8ec", "#b9ab90", STORE_SKY);
   private readonly storeKey = new DirectionalLight("#fffaf0", 1.4);
   private readonly sky = new HemisphereLight("#dde5ea", "#9c947f", 1.1);
   private readonly sun = new DirectionalLight("#fff1dc", 2.4);
+  private readonly skyColor = new Color("#dde5ea");
+  private readonly groundColor = new Color("#9c947f");
+  private readonly sunColor = new Color("#fff1dc");
   private environments: { store: Texture; outdoor: Texture } | null = null;
 
   constructor(
@@ -115,9 +127,15 @@ export class Atmosphere {
     });
   }
 
+  /** Cools and flattens the daylight (0–1) while an intensive site is on show; damped. */
+  setMood(amount: number): void {
+    this.moodTarget = Math.min(1, Math.max(0, amount));
+  }
+
   update(dt: number, target: number): void {
     if (dt <= 0) return;
     this.outdoor += (target - this.outdoor) * (1 - Math.exp(-dt / BLEND_SECONDS));
+    this.mood += (this.moodTarget - this.mood) * (1 - Math.exp(-dt / MOOD_SECONDS));
     this.apply();
   }
 
@@ -125,10 +143,14 @@ export class Atmosphere {
     const f = this.outdoor;
     this.storeSky.intensity = STORE_SKY * (1 - 0.55 * f);
     this.storeKey.intensity = 1.4 * (1 - 0.55 * f);
+    const m = this.mood * f;
     this.sky.intensity = 1.1 * f;
-    this.sun.intensity = 2.4 * f;
+    this.sky.color.copy(this.skyColor).lerp(COLD_SKY, m);
+    this.sky.groundColor.copy(this.groundColor).lerp(COLD_GROUND, m);
+    this.sun.intensity = 2.4 * f * (1 - 0.3 * this.mood);
+    this.sun.color.copy(this.sunColor).lerp(COLD_SUN, m);
     this.renderer.toneMappingExposure =
-      DEFAULT_EXPOSURE + (OUTDOOR_EXPOSURE - DEFAULT_EXPOSURE) * f;
+      DEFAULT_EXPOSURE + (OUTDOOR_EXPOSURE - DEFAULT_EXPOSURE) * f - 0.04 * m;
     if (this.environments) {
       const { outdoor, weight } = environmentBlend(f);
       this.scene.environment = outdoor ? this.environments.outdoor : this.environments.store;

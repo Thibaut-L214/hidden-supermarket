@@ -1,4 +1,4 @@
-import type { Caption } from "../features/content/types";
+import { type Caption, captionBadge } from "../features/content/types";
 
 /** Contextual prompt, captions and transient alerts (the scanner itself is drawn in 3D). */
 export class HUD {
@@ -46,9 +46,7 @@ export class HUD {
       this.caption.hidden = true;
       return;
     }
-    const badges = [caption.kind === "verified" ? "Donnée vérifiée" : "Illustration schématique"];
-    if (caption.status !== "validated") badges.push("Contenu provisoire, à valider");
-    this.caption.querySelector(".caption-badge")!.textContent = badges.join(" · ");
+    this.caption.querySelector(".caption-badge")!.textContent = captionBadge(caption);
     this.caption.querySelector(".caption-title")!.textContent = caption.title;
     this.caption.querySelector(".caption-text")!.textContent = caption.short;
     this.caption.hidden = false;

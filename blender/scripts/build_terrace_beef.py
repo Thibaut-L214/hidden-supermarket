@@ -38,7 +38,9 @@ ROADS = [
     ((4.0, 29.0), (19.0, 29.0), 8.0),  # abattoir unloading apron
     ((8.0, 15.0), (46.0, 15.0), 6.0),  # delivery road from the processing rooms
 ]
-SITE_FENCE = (-27.0, 10.0, 47.0, 57.0)
+SITE_FENCE = (-42.0, 10.0, 47.0, 84.0)
+# Two more finishing sheds behind the first, same footprint (docs/DA.md §06: repeated volumes).
+CROWD_SHEDS = [(-18.0, 41.0, -3.0, 56.0), (-18.0, 63.0, -3.0, 78.0)]
 PLATEAU, PLATEAU_Z = (-51.0, -100.0, 39.0, -19.0), -0.8
 HIDES = ("cream", "tan", "brown", "blond", "cream", "brown")
 
@@ -126,51 +128,108 @@ def ribbed_wall(name, a, b, z0, height, normal, parent, base=0.6):
 
 # --- cattle ------------------------------------------------------------------------------------
 
-def animal(name, position, parent, variation=0):
-    """Ground-centred independent root, top-jointed legs, facing local +Y. Standing beef steer
-    lofted through elliptical sections (barrel, shoulders, neck and head), polled, ear-tagged."""
-    root = empty(name, position, parent)
-    root["animalIndex"] = variation
-    hide = M["hide_" + HIDES[variation % len(HIDES)]]
-    m = MeshBuilder()
-    # Body from rump to withers: (centre, half-width, half-height).
+class Xf:
+    """Draws into a MeshBuilder with a local frame: origin `o`, optionally turned so that local
+    +Y (the animal's front) points along world +X. Lets one cow description serve both the
+    articulated timeline cattle and the static, merged crowd."""
+
+    def __init__(self, m, o=(0.0, 0.0, 0.0), turned=False):
+        self.m, self.o, self.turned = m, o, turned
+
+    def p(self, v):
+        x, y, z = v
+        if self.turned:
+            x, y = y, -x
+        return (self.o[0] + x, self.o[1] + y, self.o[2] + z)
+
+    def loft(self, rings, mat, segments=12, caps=True):
+        vertical = abs(rings[-1][0][2] - rings[0][0][2]) > abs(rings[-1][0][1] - rings[0][0][1])
+        if self.turned and vertical:
+            rings = [(c, rv, ru) for c, ru, rv in rings]
+        ref = (0.0, 0.0, 1.0) if self.turned and not vertical else (0.0, 1.0, 0.0)
+        self.m.loft([(self.p(c), ru, rv) for c, ru, rv in rings], mat, segments=segments, caps=caps, ref=ref)
+
+    def ellipsoid(self, c, r, mat, u=10, v=7):
+        self.m.ellipsoid(self.p(c), (r[1], r[0], r[2]) if self.turned else r, mat, u=u, v=v)
+
+    def limb(self, a, b, ra, rb, mat, segments=8):
+        self.m.limb(self.p(a), self.p(b), ra, rb, mat, segments=segments)
+
+    def box(self, lo, hi, mat):
+        a, b = self.p(lo), self.p(hi)
+        self.m.box(tuple(map(min, a, b)), tuple(map(max, a, b)), mat)
+
+
+def cow_body(m, hide, fine=True):
+    """Body, neck, head, ears, tags and tail of a standing, polled beef steer, facing local +Y.
+    `m` is a MeshBuilder or an Xf. `fine=False` halves the facets for the merged crowd."""
+    seg = 14 if fine else 9
     m.loft([
         ((0, -0.98, 1.28), 0.14, 0.18), ((0, -0.86, 1.29), 0.27, 0.33), ((0, -0.55, 1.22), 0.37, 0.45),
         ((0, -0.15, 1.16), 0.40, 0.50), ((0, 0.25, 1.17), 0.39, 0.50), ((0, 0.5, 1.22), 0.33, 0.46),
         ((0, 0.68, 1.30), 0.22, 0.34),
-    ], hide, segments=14)
-    # Neck and head, tapering to the muzzle.
+    ], hide, segments=seg)
     m.loft([
         ((0, 0.60, 1.30), 0.22, 0.34), ((0, 0.82, 1.32), 0.17, 0.28), ((0, 0.98, 1.26), 0.155, 0.24),
         ((0, 1.10, 1.13), 0.14, 0.19), ((0, 1.22, 1.03), 0.125, 0.15), ((0, 1.31, 0.97), 0.115, 0.12),
         ((0, 1.35, 0.96), 0.10, 0.10),
-    ], hide, segments=10)
-    m.ellipsoid((0, 1.33, 0.955), (0.105, 0.075, 0.085), M["muzzle"], u=10, v=6)
-    m.ellipsoid((0, 0.62, 0.9), (0.1, 0.19, 0.2), hide, u=8, v=6)  # dewlap
+    ], hide, segments=seg - 4)
+    m.ellipsoid((0, 1.33, 0.955), (0.105, 0.075, 0.085), M["muzzle"], u=8, v=5)
     for side in (-1, 1):
-        m.ellipsoid((side * 0.24, 0.97, 1.33), (0.15, 0.05, 0.045), hide, u=8, v=5)  # ear
-        m.ellipsoid((side * 0.135, 1.09, 1.18), (0.022, 0.03, 0.026), M["eye"], u=6, v=4)
-        m.ellipsoid((side * 0.05, 1.395, 0.975), (0.03, 0.012, 0.02), M["hoof"], u=6, v=4)  # nostril
+        m.ellipsoid((side * 0.24, 0.97, 1.33), (0.15, 0.05, 0.045), hide, u=6, v=4)  # ear
         m.box((side * 0.31 - 0.03, 0.93, 1.2), (side * 0.31 + 0.03, 0.955, 1.3), M["tag"])
-    # Tail with a switch.
-    m.limb((0, -0.97, 1.36), (0.04, -1.06, 0.62), 0.032, 0.015, hide, segments=6)
-    m.ellipsoid((0.04, -1.07, 0.5), (0.05, 0.05, 0.13), M["muzzle"], u=6, v=5)
-    m.build(name + "_BODY", parent=root)
-    for j, (x, y) in enumerate(((-0.25, -0.58), (0.25, -0.58), (-0.25, 0.48), (0.25, 0.48))):
+        if fine:
+            m.ellipsoid((side * 0.135, 1.09, 1.18), (0.022, 0.03, 0.026), M["eye"], u=6, v=4)
+            m.ellipsoid((side * 0.05, 1.395, 0.975), (0.03, 0.012, 0.02), M["hoof"], u=6, v=4)  # nostril
+    if fine:
+        m.ellipsoid((0, 0.62, 0.9), (0.1, 0.19, 0.2), hide, u=8, v=6)  # dewlap
+    m.limb((0, -0.97, 1.36), (0.04, -1.06, 0.62), 0.032, 0.015, hide, segments=6)  # tail
+
+
+def cow_leg(m, rear, hide, fine=True):
+    """One leg from the hip joint (local origin) down to the hoof, 1 m below."""
+    seg = 8 if fine else 6
+    m.loft([
+        ((0, 0.0, 0.05), 0.12 if rear else 0.10, 0.17 if rear else 0.14),
+        ((0, -0.04 if rear else 0.0, -0.25), 0.10 if rear else 0.085, 0.13 if rear else 0.10),
+        ((0, -0.10 if rear else 0.02, -0.5), 0.055, 0.07),
+        ((0, -0.03, -0.78), 0.04, 0.045),
+        ((0, 0.0, -0.9), 0.047, 0.05),
+    ], hide, segments=seg, caps=False)
+    m.loft([((0, 0.0, -0.9), 0.05, 0.055), ((0, 0.03, -1.0), 0.052, 0.085)], M["hoof"], segments=seg)
+
+
+LEGS = ((-0.25, -0.58), (0.25, -0.58), (-0.25, 0.48), (0.25, 0.48))
+
+
+def animal(name, position, parent, variation=0):
+    """Ground-centred independent root, top-jointed legs, facing local +Y (schematic standing
+    steer, see cow_body). Legs are separate joints so the walk can swing them."""
+    root = empty(name, position, parent)
+    root["animalIndex"] = variation
+    hide = M["hide_" + HIDES[variation % len(HIDES)]]
+    body = MeshBuilder()
+    cow_body(body, hide)
+    body.build(name + "_BODY", parent=root)
+    for j, (x, y) in enumerate(LEGS):
         leg = empty("CATTLE_LEG_" + name + "_" + str(j), (x, y, 1.0), root)
-        rear = y < 0
         limb = MeshBuilder()
-        # Thigh or forearm, hock or knee, cannon bone, fetlock: tapering sections, then the hoof.
-        limb.loft([
-            ((0, 0.0, 0.05), 0.12 if rear else 0.10, 0.17 if rear else 0.14),
-            ((0, -0.04 if rear else 0.0, -0.25), 0.10 if rear else 0.085, 0.13 if rear else 0.10),
-            ((0, -0.10 if rear else 0.02, -0.5), 0.055, 0.07),
-            ((0, -0.03, -0.78), 0.04, 0.045),
-            ((0, 0.0, -0.9), 0.047, 0.05),
-        ], hide, segments=8, caps=False)
-        limb.loft([((0, 0.0, -0.9), 0.05, 0.055), ((0, 0.03, -1.0), 0.052, 0.085)], M["hoof"], segments=8)
+        cow_leg(limb, y < 0, hide)
         limb.build(name + "_LIMB_" + str(j), parent=leg)
     return root
+
+
+def crowd(name, cows, parent):
+    """Many static cattle merged into one mesh (a handful of draw calls for dozens of animals).
+    `cows`: (x, y, z, hide index) in the parent's frame, all facing +X."""
+    m = MeshBuilder()
+    for x, y, z, k in cows:
+        hide = M["hide_" + HIDES[k % len(HIDES)]]
+        frame = Xf(m, (x, y, z), True)
+        cow_body(frame, hide, fine=False)
+        for lx, ly in LEGS:
+            cow_leg(Xf(m, frame.p((lx, ly, 1.0)), True), ly < 0, hide, fine=False)
+    return m.build(name, parent=parent)
 
 
 def cattle_group(name, positions, parent):
@@ -237,7 +296,7 @@ def terrace(root):
 def landscape(root):
     road_rects = [land.road_rect(r) for r in ROADS]
     flat = [
-        (-26.0, 14.0, 0.0, 44.0), (10.0, 22.0, 46.0, 52.0), (30.0, 17.0, 44.0, 50.0),
+        (-42.0, 14.0, 0.0, 82.0), (10.0, 22.0, 46.0, 52.0), (30.0, 17.0, 44.0, 50.0),
         (STORE_X0, STORE_BACK_Y, STORE_X1, TERRACE_DEPTH), (-14.0, 0.0, -3.0, 20.0),
     ]
     flat += [(x0 - 2.5, y0 - 2.5, x1 + 2.5, y1 + 2.5) for x0, y0, x1, y1 in road_rects]
@@ -264,7 +323,7 @@ def landscape(root):
         )
 
     hedges = [h for h in hedges if not crosses_road(h)]
-    rows = [((11.0, 62.0), (11.0, 104.0), "poplar"), ((-30.0, 12.0), (-30.0, 50.0), "round"), ((50.0, 20.0), (50.0, 55.0), "round")]
+    rows = [((11.0, 62.0), (11.0, 104.0), "poplar"), ((-47.0, 12.0), (-47.0, 70.0), "round"), ((50.0, 20.0), (50.0, 55.0), "round")]
     groves = [
         (-90.0, 60.0, 12), (-140.0, 150.0, 14), (110.0, 90.0, 12), (150.0, 200.0, 14), (-40.0, 190.0, 10),
         (30.0, 210.0, 12), (-170.0, -20.0, 10), (170.0, -40.0, 10), (90.0, 260.0, 14), (-110.0, 270.0, 12),
@@ -272,7 +331,7 @@ def landscape(root):
     land.vegetation("LAND_BEEF", terrain, rows, groves, hedges, root)
     land.perimeter_fence(
         "FENCE_BEEF_SITE", SITE_FENCE,
-        [(-12.0, 9.0, -5.0, 11.0), (0.0, 9.0, 10.0, 11.0), (0.0, 56.0, 10.0, 58.0), (46.0, 11.0, 48.0, 19.0)],
+        [(-12.0, 9.0, -5.0, 11.0), (0.0, 9.0, 10.0, 11.0), (0.0, 83.0, 10.0, 85.0), (46.0, 11.0, 48.0, 19.0)],
         G, root,
     )
     land.power_line("POWER_LINE_BEEF", terrain, [(210.0, 140.0), (150.0, 110.0), (90.0, 90.0), (60.0, 62.0), (47.5, 57.5)], root)
@@ -334,8 +393,9 @@ def farm(root, roofs, interior):
 
     animals = empty("ANIMALS_BEEF", parent=interior)
     cattle_group("CATTLE_BEEF_FARM", [(x, y, G + 0.13) for y in (24.5, 27.6, 30.7) for x in (-14.5, -10.6)], animals)
-    feeding = animal("BEEF_FEEDING_CATTLE", (-7.5, 31, G + 0.13), animals, 3)
-    feeding.rotation_euler.z = -math.pi / 2
+    # A row at the feed barrier, heads through the bars; the walkers' lane stays clear.
+    feeding = empty("BEEF_FEEDING_ROW", parent=animals)
+    crowd("BEEF_FEEDING_CROWD", [(-7.7, 25.2 + k * 1.1, G + 0.13, k + 2) for k in range(8)], feeding)
     resting = empty("BEEF_RESTING_CATTLE", parent=animals)
     for i, (x, y) in enumerate(((-16, 23), (-16, 28))):
         lying_cow("BEEF_RESTING_" + str(i), x, y, resting, M["hide_" + ("brown", "cream")[i]])
@@ -356,9 +416,60 @@ def farm(root, roofs, interior):
         hay_bale(bales, x - 3.0, y, G + z, "X")
     bales.build("BEEF_HAY_BALES", parent=root)
     tarp = MeshBuilder()
-    tarp.box((-17.5, 36.5, G), (-9.5, 41.5, G + 2.0), M["hay"])
-    tarp.gable((-17.7, 36.3, G + 2.0), (-9.3, 41.7, G + 2.2), 0.8, M["tarp"])
+    tarp.box((-38.5, 22.0, G), (-30.5, 27.0, G + 2.0), M["hay"])
+    tarp.gable((-38.7, 21.8, G + 2.0), (-30.3, 27.2, G + 2.2), 0.8, M["tarp"])
     tarp.build("BEEF_HAY_STORE", parent=root)
+
+
+def crowd_shed(index, rect, root, roofs, animals):
+    """Finishing shed with its roof in the lifting set: slatted concrete floor, a feed barrier
+    and trough along the east side, and rows of cattle packed head to the barrier. Static and
+    merged: it states the scale of a site, not a number of animals."""
+    x0, y0, x1, y1 = rect
+    tag = f"BEEF_SHED{index}"
+    shed = empty(f"BUILDING_BEEF_FARM_{index}", parent=root)
+    box(tag + "_SLAB", (x0, y0, G - 0.1), (x1, y1, G + 0.05), M["farm_floor"], shed)
+    walls = MeshBuilder()
+    for a, b in (((x0, y0, G), (x0 + 0.2, y1, G + 3)), ((x0, y1 - 0.2, G), (x1, y1, G + 3)),
+                 ((x1 - 0.2, y0, G), (x1, y1, G + 3)), ((x0, y0, G), (x1, y0 + 0.2, G + 1))):
+        walls.box(a, b, M["farm"])
+    bevel(walls.build(tag + "_WALLS", parent=shed), 0.02)
+    ribbed_wall(tag + "_CLADDING_W", (x0, y1), (x0, y0), G, FARM_WALL_H, (-1, 0), shed)
+    ribbed_wall(tag + "_CLADDING_N", (x1, y1), (x0, y1), G, FARM_WALL_H, (0, 1), shed)
+    ribbed_wall(tag + "_CLADDING_E", (x1, y0), (x1, y1), G, FARM_WALL_H, (1, 0), shed)
+    MeshBuilder().gable((x0 - 0.3, y0 - 0.3, G + 3.1), (x1 + 0.3, y1 + 0.3, G + 3.25), FARM_RIDGE, M["farm_roof"]).build(
+        f"ROOF_BEEF_FARM_{index}", parent=roofs)["ao_skip"] = True
+    props.house_structure(tag + "_FRAME", x0 + 0.2, x1 - 0.2, y0, y1, G, FARM_WALL_H, FARM_RIDGE + 0.1, shed, bays=5)
+    # Slatted floor: dark gaps between concrete slats, running across the pen.
+    slats = MeshBuilder()
+    gx0, gx1 = x0 + 0.4, x1 - 2.6
+    y = y0 + 0.5
+    while y < y1 - 0.6:
+        slats.box((gx0, y, G + 0.05), (gx1, y + 0.07, G + 0.062), props.M["grill"])
+        y += 0.42
+    slats.build(tag + "_SLATS", parent=shed)["ao_skip"] = True
+    # Feed barrier, alley and trough on the east side.
+    bx = x1 - 2.4
+    rails(tag + "_BARRIER", (bx, y0 + 0.6), (bx, y1 - 0.6), shed)
+    box(tag + "_ALLEY", (bx + 0.3, y0 + 0.3, G + 0.05), (x1 - 0.3, y1 - 0.3, G + 0.09), props.M["base"], shed)
+    trough = MeshBuilder().box((bx + 0.35, y0 + 0.6, G + 0.09), (bx + 1.25, y1 - 0.6, G + 0.3), props.M["base"])
+    trough.build(tag + "_TROUGH", parent=shed)
+    drink = MeshBuilder()
+    for y in (y0 + 2.5, y1 - 2.5):
+        drink.box((x0 + 0.5, y - 0.5, G + 0.05), (x0 + 2.5, y + 0.5, G + 0.55), M["rail"])
+    drink.build(tag + "_WATER", parent=shed)
+    # Cattle facing the barrier, four ranks deep, shoulder to shoulder; a few gaps keep it organic.
+    rng = _rng(100 + index)
+    cows = []
+    for rank in range(4):
+        x = bx - 1.45 - rank * 2.55
+        y = y0 + 1.3
+        while y < y1 - 1.2:
+            if rng.random() > 0.07:
+                cows.append((x + rng.uniform(-0.12, 0.12), y, G + 0.07, int(rng.random() * 6)))
+            y += 1.05
+    crowd(f"BEEF_CROWD_{index}", cows, animals)
+    return shed
 
 
 def _rng(seed):
@@ -603,6 +714,12 @@ def main():
     interior = empty("INTERIOR_BEEF", parent=root)
     farm(root, roofs, interior)
     plant(root, roofs, interior)
+    animals = bpy.data.objects["ANIMALS_BEEF"]
+    for i, rect in enumerate(CROWD_SHEDS, start=2):
+        crowd_shed(i, rect, root, roofs, animals)
+    empty("ANCHOR_BEEF_WIDE", (-10, 52, G + 1), root)
+    empty("ANCHOR_BEEF_MARK_CROWD", (-10, 48.5, G + 3.4), root)
+    empty("ANCHOR_BEEF_MARK_SITE", (-10, 70.5, G + 4.4), root)
     livestock = truck("TRUCK_BEEF_ANIMALS", (-8, 10, G), root)
     # Two abreast, three rows, enough head clearance and a correct 0.9m deck.
     cattle_group("CATTLE_BEEF_TRUCK", [(x, y, 0.9) for y in (-3.35, -1.35, 0.65) for x in (-0.56, 0.56)], livestock)

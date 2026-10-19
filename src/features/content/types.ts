@@ -27,3 +27,10 @@ export interface Caption {
 }
 
 export const SHORT_MAX = 140;
+
+/** Nature and validation status of a caption, for the badge shown with it. */
+export function captionBadge(caption: Caption): string {
+  const badges = [caption.kind === "verified" ? "Donnée vérifiée" : "Illustration schématique"];
+  if (caption.status !== "validated") badges.push("Contenu provisoire, à valider");
+  return badges.join(" · ");
+}

@@ -82,11 +82,11 @@ PROFILES = {
         max_density=20.0,
         blur=2.0,
         outdoors=re.compile(
-            r"^(TERRAIN_|HILLS_|LAND_|ROAD_|POWER_LINE_|FENCE_|ROOF_|BUILDING_EGGS_FARM_2_ROOF"
-            r"|TRUCK_|CARGO_|CRATES_|CARTONS_|HENCRATES_|HENS_|INTERIOR_|CATTLE_|MEAT_BEEF_|BEEF_FEEDING_|BEEF_RESTING_)"
+            r"^(TERRAIN_|HILLS_|LAND_|ROAD_|POWER_LINE_|FENCE_|ROOF_|BUILDING_EGGS_FARM_\d+_ROOF"
+            r"|TRUCK_|CARGO_|CRATES_|CARTONS_|HENCRATES_|HENS_|INTERIOR_|CATTLE_|MEAT_BEEF_|BEEF_FEEDING_|BEEF_RESTING_|BEEF_CROWD_)"
         ),
         aisle=NEVER,
-        moving=re.compile(r"^(ROOF_|BUILDING_EGGS_FARM_2_ROOF|TRUCK_|CARGO_|CRATES_|CARTONS_|HENCRATES_|CATTLE_|MEAT_BEEF_)"),
+        moving=re.compile(r"^(ROOF_|BUILDING_EGGS_FARM_\d+_ROOF|TRUCK_|CARGO_|CRATES_|CARTONS_|HENCRATES_|CATTLE_|MEAT_BEEF_)"),
         floor="TERRACE_FLOOR",
         floor_level=0.95,
         aisle_level=0.9,

@@ -1,5 +1,5 @@
 // Indoor finishing is one selected scenario. Sources support claims; editorial review remains due.
-import { TERRACE_BEEF_CONTRACT } from "../../core/assetContract";
+import { BEEF_MARKER_ANCHORS, TERRACE_BEEF_CONTRACT } from "../../core/assetContract";
 import type { ChainConfig } from "../../features/chains/ChainModule";
 import type { Caption, SourceRef } from "../../features/content/types";
 
@@ -72,6 +72,14 @@ export const beef: ChainConfig = {
         "Ce parcours illustre un engraissement en bâtiment, puis l’abattoir et la livraison de viande au magasin.",
       detail:
         "Le rayon propose des steaks et de la viande hachée. Le paysage rapproche les étapes et réduit leurs durées. Les animaux, bâtiments et véhicules ne reproduisent aucun site réel. Les effectifs visibles ne donnent aucune densité d’élevage.",
+    }),
+    schematic({
+      id: "beef.site",
+      title: "Un site, plusieurs bâtiments",
+      short:
+        "Les bâtiments d’engraissement se répètent pour figurer l’échelle d’un site. Leur nombre est schématique.",
+      detail:
+        "Plusieurs bâtiments identiques se succèdent pour montrer l’aspect répétitif d’un site d’engraissement. Cette scène ne donne ni le nombre de bâtiments ni l’effectif d’un élevage réel.",
     }),
     verified({
       id: "beef.system",
@@ -285,6 +293,10 @@ export const beef: ChainConfig = {
       captionId: "beef.delivery",
       from: "CARGO_BEEF_DELIVERY",
     },
+  ],
+  markers: [
+    { anchor: BEEF_MARKER_ANCHORS[0], captionId: "beef.recap.welfare" },
+    { anchor: BEEF_MARKER_ANCHORS[1], captionId: "beef.site" },
   ],
   recap: ["beef.recap.welfare", "beef.recap.steps", "beef.recap.scope"],
   sources: [FR_BEEF, EFSA_BEEF, EFSA_TRANSPORT, EFSA_SLAUGHTER, FR_SLAUGHTER, EU_HYGIENE],

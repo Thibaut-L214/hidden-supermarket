@@ -322,6 +322,73 @@ kbd {
   color: #4d5a4a;
 }
 
+#stage-markers {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+#stage-markers[hidden],
+.stage-marker[hidden] {
+  display: none;
+}
+
+.stage-marker {
+  position: absolute;
+  box-sizing: border-box;
+  width: min(14rem, 40%);
+  padding: 0.5rem 0.65rem;
+  transform: translate(-50%, -100%);
+  border-left: 3px solid #6f8a68;
+  border-radius: 0.35rem;
+  background: rgb(247 244 236 / 90%);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.stage-marker {
+  --lift: 0px;
+}
+
+/* Leader from the label down to its anchor when the label was lifted clear of another. */
+.stage-marker::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(-1 * var(--lift));
+  width: 2px;
+  height: var(--lift);
+  transform: translateX(-50%);
+  background: #6f8a68;
+}
+
+.stage-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(-0.45rem - var(--lift));
+  width: 0.55rem;
+  height: 0.55rem;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: #6f8a68;
+}
+
+.stage-marker-badge {
+  margin: 0 0 0.2rem;
+  font-size: 0.7rem;
+  color: #4d5a4a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stage-marker-text {
+  margin: 0.15rem 0 0;
+}
+
 #subtitles {
   position: absolute;
   left: 50%;

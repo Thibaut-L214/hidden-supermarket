@@ -17,6 +17,7 @@ import { GameState, canWalk, type GameEvents } from "../core/GameState";
 import { PerfMonitor } from "../core/PerfMonitor";
 import { CHAINS } from "../data/chains";
 import { EXIT_LINKS } from "../data/exitLinks";
+import { StageMarkers } from "../ui/StageMarkers";
 import { TerraceStage } from "../features/chains/TerraceStage";
 import { ExitScene } from "../features/exit/ExitScene";
 import { TerraceTransition } from "../features/portal/TerraceTransition";
@@ -93,6 +94,7 @@ const clock = new GameClock();
 const assets = new AssetManager(renderer);
 const collisions = new CollisionWorld();
 const fps = new FPSController(camera, canvas, collisions, settings, EYE_HEIGHT);
+const stageMarkers = new StageMarkers(element("#stage-markers"), camera);
 const hud = new HUD(element("#hud-prompt"), status, element("#caption"));
 const atmosphere = new Atmosphere(scene, renderer);
 const sky = new SkyDome(atmosphere.sunDirection);
@@ -299,7 +301,9 @@ function createWorld(store: StoreWorld) {
       showCaption: (caption) => hud.showCaption(caption),
     },
     reducedMotion: () => settings.reducedMotion,
-    glance: (target) => fps.glanceAt(target),
+    glance: (target, seconds) => fps.glanceAt(target, seconds),
+    markers: stageMarkers,
+    mood: (amount) => atmosphere.setMood(amount),
   });
   transition.onModuleChange = (chain, root) => {
     const config = CHAINS[chain];
@@ -354,6 +358,7 @@ function frame(now: number): void {
 function draw(): void {
   renderer.info.reset();
   sky.follow(camera.position);
+  stageMarkers.update();
   if (postFx?.enabled) {
     postFx.setOutdoor(atmosphere.outdoor);
     postFx.render(0);

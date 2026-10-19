@@ -138,6 +138,12 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - Repères de visée sans point central : contour du rayon visé, invite texte (accessible) et écran du terminal.
 - L'outil est levé au magasin (`STORE`, `SCANNING`, `OPENING`), baissé sur la terrasse et à la sortie, masqué sous les dialogues ; levée et descente instantanées en mode « Réduire les mouvements ».
 
+## Mise en avant de l'élevage intensif
+
+- Densité : cinq bâtiments de ponte identiques en rangée (seul le premier s'ouvre), quatre blocs de cages sur trois étages ; trois bâtiments d'engraissement (deux fermés de la même façon, toit soulevé avec le premier) aux bovins serrés sur caillebotis face à l'auge. Les effectifs sont schématiques : les cartels `eggs.site` et `beef.site` le disent, aucun nombre n'est affiché.
+- Mise en scène : à la révélation, lumière plus froide et plus plate (`Atmosphere.setMood`, amortie, conservée avec « Réduire les mouvements » car ce n'est pas un mouvement), puis cadrage lent vers `ANCHOR_*_WIDE` (supprimé en mouvements réduits).
+- Repères sur le site (`StageMarkers`) : chaque repère cite un cartel existant, donc sa source et son statut ; aucune donnée n'est écrite dans le repère. Œufs : `eggs.system` (cages) et `eggs.site` ; bœuf : `beef.recap.welfare` (EFSA) et `beef.site`.
+
 ## Entrées
 
 - Touches lues via `KeyboardEvent.code` : ZQSD (AZERTY) et WASD (QWERTY) correspondent aux mêmes codes physiques.

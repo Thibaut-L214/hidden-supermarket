@@ -7,6 +7,7 @@ import type { EventBus } from "../../core/EventBus";
 import type { GameEvents, GameState } from "../../core/GameState";
 import type { Vec2 } from "../../world/CollisionWorld";
 import type { Caption } from "../content/types";
+import type { MarkerItem } from "../../ui/StageMarkers";
 import { type ChainConfig, captionById } from "./ChainModule";
 import { ChainTimeline } from "./ChainTimeline";
 import { RoofReveal } from "./RoofReveal";
@@ -29,14 +30,23 @@ export interface TerraceStageDeps {
   hud: StageHud;
   reducedMotion: () => boolean;
   /** Optional framing towards a world point; skipped under reduced motion. */
-  glance: (target: Vector3) => void;
+  glance: (target: Vector3, seconds?: number) => void;
+  /** Information markers over the site (omitted in tests). */
+  markers?: { set(items: readonly MarkerItem[]): void };
+  /** Industrial light mood, 0–1 (omitted in tests). */
+  mood?: (amount: number) => void;
 }
+
+/** Seconds of the slow, wide framing that follows the roof reveal. */
+const WIDE_SECONDS = 3.6;
 
 interface Stage {
   config: ChainConfig;
   root: Object3D;
   view: Object3D;
   focus: Object3D;
+  /** Optional wide framing of the whole site. */
+  wide: Object3D | null;
   roof: RoofReveal;
   /** Animals of the farm building: drawn once the roof starts to lift. */
   animals: Object3D;
@@ -61,11 +71,19 @@ export class TerraceStage {
         if (!deps.reducedMotion()) deps.glance(stage.focus.getWorldPosition(new Vector3()));
         this.showCaption(stage, stage.config.revealCaption);
       }
+      if (to === "REVEAL") deps.mood?.(1);
       if (to === "CHAIN") {
+        if (!deps.reducedMotion() && stage.wide) {
+          deps.glance(stage.wide.getWorldPosition(new Vector3()), WIDE_SECONDS);
+        }
+        this.showMarkers(stage);
         stage.director.restart();
         stage.scene.apply(stage.director.state);
       }
-      if (to === "RETURN") this.showCaption(stage, null);
+      if (to === "RETURN") {
+        this.showCaption(stage, null);
+        this.clearStaging();
+      }
     });
   }
 
@@ -99,6 +117,7 @@ export class TerraceStage {
       root,
       view: find(n.view),
       focus: find(n.focus),
+      wide: root.getObjectByName(n.wide) ?? null,
       animals,
       ...built,
       director: new TimelineDirector(config.timeline),
@@ -113,6 +132,7 @@ export class TerraceStage {
     this.stage.scene.apply(null);
     this.stage.animals.visible = false;
     this.stage = null;
+    this.clearStaging();
     this.deps.hud.setHint(null);
     this.deps.hud.showCaption(null);
   }
@@ -146,6 +166,25 @@ export class TerraceStage {
       this.showCaption(stage, stage.config.timeline[timeline.active]?.captionId ?? null);
       if (timeline.done) game.send({ type: "TIMELINE_DONE" });
     }
+  }
+
+  private showMarkers(stage: Stage): void {
+    const items: MarkerItem[] = [];
+    for (const { anchor, captionId } of stage.config.markers ?? []) {
+      const node = stage.root.getObjectByName(anchor);
+      if (node) {
+        items.push({
+          caption: captionById(stage.config, captionId),
+          position: node.getWorldPosition(new Vector3()),
+        });
+      }
+    }
+    this.deps.markers?.set(items);
+  }
+
+  private clearStaging(): void {
+    this.deps.markers?.set([]);
+    this.deps.mood?.(0);
   }
 
   private showCaption(stage: Stage, id: string | null): void {
