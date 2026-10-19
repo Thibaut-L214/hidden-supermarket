@@ -95,6 +95,12 @@ PROFILES = {
 }
 
 
+def isolation_key(name: str) -> str:
+    """Group of parts baked together for occlusion: `CARGO_EGGS_FARM_03` → `CARGO_EGGS_FARM`,
+    `DOOR_EGGS_L_GOODS` → `DOOR_EGGS_L` (a door, its goods and eggs; the other door apart)."""
+    return re.sub(r"(_\d+|_BODY|_GOODS|_EGGS)+$", "", name) if not re.match(r"^DOOR_EGGS_[LR]", name) else name[:11]
+
+
 def classify(obj: bpy.types.Object, profile: Profile) -> str:
     """'baked' | 'outdoors' (full light) | 'aisle' (average light)."""
     if profile.outdoors.search(obj.name):

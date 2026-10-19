@@ -264,6 +264,9 @@ def door_half(hinge, side: int):
                 carton(goods, cx0, cx1, 0.05, 0.33, z + 0.025 + 0.12, mat, None)
 
     door = bevel(frame.build(f"DOOR_EGGS_{name}", parent=hinge), 0.006)
+    # Large faces whose four corners touch the canopy and kick plate: per-vertex occlusion would
+    # darken the whole panel (the door's outer face turns to face the aisle when it opens).
+    door["ao_skip"] = True
     bevel(goods.build(f"DOOR_EGGS_{name}_GOODS", parent=door), 0.003)
     eggs.build(f"DOOR_EGGS_{name}_EGGS", parent=door)
     collider = MeshBuilder().box((bx0, 0.0, 0.0), (bx1, SHELF_DEPTH, h)).build(f"COL_DOOR_EGGS_{name}", parent=door)

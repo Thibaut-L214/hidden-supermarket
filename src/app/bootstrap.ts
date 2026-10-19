@@ -304,6 +304,7 @@ function createWorld(store: StoreWorld) {
     const config = CHAINS[chain];
     if (root && config) {
       atmosphere.shade(root);
+      postFx?.excludeGlass(root);
       stage.attach(config, root);
     } else stage.detach();
     soundscape.setVehicles(root);
@@ -397,6 +398,7 @@ async function loadStore(): Promise<void> {
   try {
     const store = await StoreWorld.load(assets, scene);
     atmosphere.shadeStore(store.root);
+    postFx?.excludeGlass(store.root);
     collisions.addFrom(store.root);
     const spawn = store.spawnPose();
     fps.setPose(spawn.position, spawn.yaw);
@@ -446,6 +448,9 @@ if (import.meta.env.DEV) {
       },
       get scannerView() {
         return scannerView;
+      },
+      get postFx() {
+        return postFx;
       },
       /** Freezes the current frame in an overlay image (background tabs do not composite the canvas); false removes it. */
       async capture(show = true) {

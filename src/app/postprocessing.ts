@@ -5,6 +5,7 @@
 // straight to the screen, as before.
 import {
   type Camera,
+  Mesh,
   type Object3D,
   type Scene,
   Vector2,
@@ -35,6 +36,7 @@ export class PostProcessing {
   private readonly composer: EffectComposer;
   private readonly ao: GTAOPass;
   private readonly bloom: UnrealBloomPass;
+  private readonly hiddenForAO: Object3D[];
 
   /**
    * @param hiddenForAO objects drawn by the scene pass but kept out of the AO depth/normal
@@ -46,6 +48,8 @@ export class PostProcessing {
     camera: Camera,
     hiddenForAO: Object3D[] = [],
   ) {
+    this.hiddenForAO = [...hiddenForAO];
+    const hidden = this.hiddenForAO;
     this.composer = new EffectComposer(renderer);
     this.composer.addPass(new RenderPass(scene, camera));
 
@@ -54,9 +58,10 @@ export class PostProcessing {
     this.ao.blendIntensity = POST_SETTINGS.aoIntensity;
     const render = this.ao.render.bind(this.ao) as (...args: unknown[]) => void;
     this.ao.render = ((...args: unknown[]) => {
-      for (const object of hiddenForAO) object.visible = false;
+      const shown = hidden.filter((object) => object.visible);
+      for (const object of shown) object.visible = false;
       render(...args);
-      for (const object of hiddenForAO) object.visible = true;
+      for (const object of shown) object.visible = true;
     }) as GTAOPass["render"];
     this.composer.addPass(this.ao);
 
@@ -65,6 +70,19 @@ export class PostProcessing {
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.composer.addPass(new SMAAPass());
+  }
+
+  /**
+   * Keeps the glass under `root` (alpha-blended meshes: entrance doors, fridge doors, windows,
+   * guardrail) out of the AO depth and normal pass. Occlusion computed on a pane would darken
+   * what is seen through it and leave a dark halo around its edges that follows it when it moves.
+   */
+  excludeGlass(root: Object3D): void {
+    root.traverse((object) => {
+      if (!(object instanceof Mesh) || this.hiddenForAO.includes(object)) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      if (materials.some((m) => m.transparent)) this.hiddenForAO.push(object);
+    });
   }
 
   /** `outdoor` in [0, 1] (Atmosphere): in the sun, lit surfaces exceed the store's bloom threshold. */

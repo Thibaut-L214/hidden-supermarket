@@ -25,7 +25,7 @@ import time
 sys.path.insert(0, os.path.dirname(__file__))
 
 from common import apply_modifiers, bake_ambient_occlusion, export_glb, rendered_meshes  # noqa: E402
-from lightmap import PROFILES, bake_lightmap, build_lightmap_uvs  # noqa: E402
+from lightmap import PROFILES, bake_lightmap, build_lightmap_uvs, isolation_key  # noqa: E402
 from surfaces import project_goods_uvs, project_surface_uvs  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
@@ -39,6 +39,7 @@ meshes = rendered_meshes()
 apply_modifiers(meshes)
 print(f"UV0 projected on {project_surface_uvs(meshes)} textured meshes, {project_goods_uvs(meshes)} product parts")
 lit = set()
+profile = None
 profile_name = next((a.split("=", 1)[1] for a in argv if a.startswith("--lightmap=")), None)
 if profile_name:
     profile = PROFILES[profile_name]
@@ -49,6 +50,9 @@ if profile_name:
         bake_lightmap(layout["baked"], layout["floor"], os.path.splitext(out)[0] + ".lightmap.jpg", profile)
 if "--no-ao" not in argv:
     started = time.time()
-    count = bake_ambient_occlusion([o for o in meshes if o.name not in lit])
+    # Parts that move at runtime are baked alone, so they carry no shadow of where they start.
+    isolate = (lambda o: isolation_key(o.name) if profile.moving.search(o.name) else None) if profile else None
+    ground = (lambda o: o.name == profile.floor or o.name.startswith(("TERRAIN_", "ROAD_", "DOCK_"))) if profile else None
+    count = bake_ambient_occlusion([o for o in meshes if o.name not in lit], isolate=isolate, ground=ground)
     print(f"AO baked on {count} meshes in {time.time() - started:.1f} s")
 export_glb(out)

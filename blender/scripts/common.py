@@ -396,10 +396,16 @@ def apply_modifiers(objects) -> None:
         obj.data = mesh
 
 
-def bake_ambient_occlusion(objects, samples: int = 24, distance: float = 0.8, strength: float = 0.75) -> int:
+def bake_ambient_occlusion(objects, samples: int = 24, distance: float = 0.8, strength: float = 0.75, isolate=None, ground=None) -> int:
     """Bakes ambient occlusion into a linear colour attribute on `objects` (modifiers already
     applied). `strength` < 1 softens the result to keep the stylised, bright look
     (docs/DA.md §04). Returns the number of meshes baked.
+
+    `isolate(obj)` returns a group key for parts that move at runtime (doors, vehicles, loads) or
+    None. Each group is baked alone: the rest of the scene is hidden meanwhile, otherwise a part
+    would keep the shadows of the place it starts in (the inner face of a shelf door, dark from
+    standing against the wall, would stay dark once the door swings out). `ground(obj)` keeps the
+    floor and terrain visible meanwhile, for contact shadows.
     """
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
@@ -420,11 +426,21 @@ def bake_ambient_occlusion(objects, samples: int = 24, distance: float = 0.8, st
         obj.data.color_attributes.active_color = attr
         obj.data.color_attributes.render_color_index = obj.data.color_attributes.find(AO_ATTRIBUTE)
 
-    bpy.ops.object.select_all(action="DESELECT")
+    groups: dict[str | None, list] = {}
     for obj in targets:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = targets[0]
-    bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
+        groups.setdefault(isolate(obj) if isolate else None, []).append(obj)
+    visible = [o for o in scene.objects if o.type == "MESH" and not o.hide_render]
+    for key, members in groups.items():
+        if key is not None:
+            for obj in visible:
+                obj.hide_render = obj not in members and not (ground and ground(obj))
+        bpy.ops.object.select_all(action="DESELECT")
+        for obj in members:
+            obj.select_set(True)
+        bpy.context.view_layer.objects.active = members[0]
+        bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
+        for obj in visible:
+            obj.hide_render = False
 
     for obj in targets:
         data = obj.data.color_attributes[AO_ATTRIBUTE].data
