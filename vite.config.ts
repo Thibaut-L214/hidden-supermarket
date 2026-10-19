@@ -1,6 +1,8 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // Relative URLs work on project Pages, user Pages and custom domains.
+  base: "./",
   build: {
     target: "es2022",
     sourcemap: true,

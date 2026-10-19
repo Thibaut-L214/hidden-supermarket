@@ -10,6 +10,7 @@ import {
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import { AssetError, AssetManager } from "../core/AssetManager";
+import { assetUrl } from "../core/assetUrl";
 import { EventBus } from "../core/EventBus";
 import { GameClock } from "../core/GameClock";
 import { GameState, canWalk, type GameEvents } from "../core/GameState";
@@ -123,7 +124,7 @@ const environments: Promise<Texture> = (async () => {
   const outdoor = pmrem.fromScene(skyScene, 0.02).texture;
   let store = fallbackEnvironment;
   try {
-    const panorama = await new HDRLoader().loadAsync("/assets/shared/env_store.hdr");
+    const panorama = await new HDRLoader().loadAsync(assetUrl("assets/shared/env_store.hdr"));
     panorama.mapping = EquirectangularReflectionMapping;
     store = pmrem.fromEquirectangular(panorama).texture;
     panorama.dispose();

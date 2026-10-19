@@ -1,6 +1,7 @@
 // Naming contract between Blender exports and the runtime (docs/TECH.md §03, docs/DECISIONS.md).
 // Used at runtime to validate a loaded GLB and by tests/assets.test.ts on the exported files.
 import type { ChainId } from "./chain";
+import { assetUrl } from "./assetUrl";
 
 /** Helper volumes: exported in the GLB, never rendered. */
 export const HIDDEN_PREFIXES = ["COL_", "SCAN_", "TRIGGER_"] as const;
@@ -76,7 +77,7 @@ export const EXIT_NODES = {
 const eggsShelf = shelfContract("eggs");
 
 export const STORE_CONTRACT: AssetContract = {
-  url: "/assets/store/store.glb",
+  url: assetUrl("assets/store/store.glb"),
   required: ["STORE_ROOT", "SPAWN_PLAYER", ...Object.values(EXIT_NODES), ...eggsShelf.required],
   parents: {
     ...eggsShelf.parents,
@@ -92,7 +93,7 @@ export const STORE_CONTRACT: AssetContract = {
 const eggsTerrace = terraceNodes("eggs");
 
 export const TERRACE_EGGS_CONTRACT: AssetContract = {
-  url: "/assets/eggs/terrace_eggs.glb",
+  url: assetUrl("assets/eggs/terrace_eggs.glb"),
   required: [
     ...Object.values(eggsTerrace),
     "BUILDING_EGGS_FARM",
@@ -112,7 +113,7 @@ export const TERRACE_EGGS_CONTRACT: AssetContract = {
 
 /** First-person scanner: hand and handheld terminal (docs/DA.md §05). */
 export const SCANNER_CONTRACT: AssetContract = {
-  url: "/assets/shared/scanner_hand.glb",
+  url: assetUrl("assets/shared/scanner_hand.glb"),
   required: ["SCANNER_ROOT", "SCANNER_BODY", "SCANNER_SCREEN", "SCANNER_WINDOW", "SCANNER_HAND"],
   parents: {
     SCANNER_BODY: "SCANNER_ROOT",

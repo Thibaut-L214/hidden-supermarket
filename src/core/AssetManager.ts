@@ -3,6 +3,7 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { type GLTF, GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { checkContract, isHiddenHelper, type AssetContract } from "./assetContract";
+import { assetUrl } from "./assetUrl";
 
 export class AssetError extends Error {
   constructor(
@@ -25,13 +26,13 @@ export class AssetManager {
 
   /**
    * GLBs are meshopt-compressed by scripts/optimize-glb.mjs; KTX2 textures, when present, are
-   * transcoded with the Basis files copied to /basis/ (scripts/copy-basis.mjs).
+   * transcoded with the Basis files copied to public/basis/ (scripts/copy-basis.mjs).
    */
   constructor(renderer?: WebGLRenderer) {
     if (renderer) {
       this.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
       this.loader.setKTX2Loader(
-        new KTX2Loader().setTranscoderPath("/basis/").detectSupport(renderer),
+        new KTX2Loader().setTranscoderPath(assetUrl("basis/")).detectSupport(renderer),
       );
     }
   }

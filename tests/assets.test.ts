@@ -28,6 +28,10 @@ function contractNodes(doc: Document): ContractNode[] {
     .map((node) => ({ name: node.getName(), parentName: node.getParentNode()?.getName() ?? null }));
 }
 
+function publicAssetPath(url: string): string {
+  return resolve("public", url.replace(/^\.?\//, ""));
+}
+
 describe("checkContract", () => {
   const contract: AssetContract = {
     url: "",
@@ -64,7 +68,7 @@ describe.each([STORE_CONTRACT, TERRACE_EGGS_CONTRACT, SCANNER_CONTRACT])("$url",
   let doc: Document;
 
   beforeAll(async () => {
-    doc = await (await reader()).read(resolve("public", `.${contract.url}`));
+    doc = await (await reader()).read(publicAssetPath(contract.url));
   });
 
   it("honours the naming contract", () => {
@@ -83,7 +87,7 @@ describe.each([STORE_CONTRACT, TERRACE_EGGS_CONTRACT, SCANNER_CONTRACT])("$url",
 
 describe("eggs timeline objects", () => {
   it("exist in the terrace GLB, with at least two points per path", async () => {
-    const doc = await (await reader()).read(resolve("public", `.${TERRACE_EGGS_CONTRACT.url}`));
+    const doc = await (await reader()).read(publicAssetPath(TERRACE_EGGS_CONTRACT.url));
     const names = new Set(
       doc
         .getRoot()
