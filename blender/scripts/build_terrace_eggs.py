@@ -100,7 +100,6 @@ def terrace(root) -> None:
         helper_volume(box(f"COL_RAIL_{key}", (x0, y0, 0.0), (x1, y1, RAIL_H), None, root))
 
     empty("ANCHOR_EGGS_VIEW", (0.0, TERRACE_DEPTH - 0.8, 0.0), root)
-    props.lectern("EGGS", -2.6, 4.2, root)
 
     # Expansion joints in the slab (flush details stay out of the occlusion bake).
     joints = MeshBuilder()

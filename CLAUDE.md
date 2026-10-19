@@ -44,7 +44,7 @@ Blender attendu dans `/Applications/Blender.app` ; sinon `BLENDER=/chemin/vers/b
 - `blender/scripts/export.py` : export GLB standard (vers `blender/out/`, hors dépôt), à utiliser aussi pour les `.blend` retouchés à la main.
 - `scripts/optimize-glb.mjs` : compression meshopt vers `public/assets/` ; KTX2 nécessite KTX-Software (`toktx`).
 - `blender/scripts/store_props.py` : mobilier et marchandises détaillés du magasin.
-- `blender/scripts/terrace_props.py` : charpente, bardage, silos, quais, palettes, camions et pupitre de la terrasse.
+- `blender/scripts/terrace_props.py` : charpente, bardage, silos, quais, palettes, camions de la terrasse.
 - `blender/scripts/landscape_props.py` : relief, champs, routes, végétation, clôture et ligne électrique.
 - `blender/scripts/parvis_props.py` : façade, marquise, mobilier du parvis, stand et bénévoles.
 - `blender/scripts/make_textures.py` : sets PBR tileables (`blender/textures/`) ; `surfaces.py` projette les UV à l'export, `lightmap.py` cuit l'éclairage (profils `store`, `terrace`), `bake_env.py` le panorama HDR du magasin.

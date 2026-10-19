@@ -43,8 +43,6 @@ export function terraceNodes(chain: ChainId) {
     focus: `ANCHOR_${id}_FOCUS`,
     roof: `ROOF_${id}`,
     interior: `INTERIOR_${id}`,
-    /** Reading stand panel where the current caption is mirrored. */
-    lectern: `LECTERN_PANEL_${id}`,
   } as const;
 }
 

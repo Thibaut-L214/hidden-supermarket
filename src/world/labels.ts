@@ -9,7 +9,6 @@ import {
   SRGBColorSpace,
   Vector3,
 } from "three";
-import type { Caption } from "../features/content/types";
 
 /**
  * Flat label just in front of a sign panel's front face (+Z in glTF space); `twoSided` adds
@@ -112,62 +111,4 @@ function createPlate(
     new PlaneGeometry(width, height),
     new MeshStandardMaterial({ map: texture, roughness: 0.8 }),
   );
-}
-
-/** Splits text into lines that fit `width` pixels with the context's current font. */
-function wrap(ctx: CanvasRenderingContext2D, text: string, width: number): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text.split(/\s+/)) {
-    const next = line ? `${line} ${word}` : word;
-    if (ctx.measureText(next).width > width && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = next;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-/**
- * Reading stand panel (lot 2): mirrors the on-screen caption in the world. The DOM caption
- * stays the accessible source; this copy only helps the scene read as a documentary display.
- */
-export class CaptionPanel {
-  private face: Mesh | null = null;
-
-  constructor(private readonly panel: Object3D) {}
-
-  show(caption: Caption | null): void {
-    this.face?.removeFromParent();
-    (this.face?.material as MeshStandardMaterial | undefined)?.map?.dispose();
-    this.face = null;
-    const size = panelSize(this.panel);
-    const width = size.x * 0.94;
-    // The panel leans back, so its world box is taller than the face: use its local height.
-    const height = width * (0.6 / 0.9);
-    const face = createPlate(width, height, "#f7f4ec", (ctx, w, h) => {
-      const pad = w * 0.06;
-      ctx.fillStyle = "#4d5a4a";
-      ctx.font = `600 ${Math.round(h * 0.07)}px system-ui, sans-serif`;
-      const badge = caption
-        ? `${caption.kind === "verified" ? "DONNÉE VÉRIFIÉE" : "ILLUSTRATION SCHÉMATIQUE"}${caption.status === "validated" ? "" : " · PROVISOIRE"}`
-        : "DERRIÈRE LE RAYON";
-      ctx.fillText(badge, pad, pad + h * 0.07);
-      ctx.fillStyle = "#1f2420";
-      ctx.font = `700 ${Math.round(h * 0.11)}px system-ui, sans-serif`;
-      ctx.fillText(caption?.title ?? "Observez depuis le garde-corps", pad, pad + h * 0.22);
-      ctx.font = `400 ${Math.round(h * 0.075)}px system-ui, sans-serif`;
-      const body = caption?.short ?? "Les étapes s'affichent ici au fil de la chaîne.";
-      wrap(ctx, body, w - 2 * pad).forEach((line, i) =>
-        ctx.fillText(line, pad, pad + h * (0.36 + i * 0.1)),
-      );
-    });
-    face.name = `${this.panel.name}_FACE`;
-    face.position.set(0, 0, 0.017);
-    this.panel.add(face);
-    this.face = face;
-  }
 }

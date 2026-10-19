@@ -83,7 +83,7 @@ PROFILES = {
         blur=2.0,
         outdoors=re.compile(
             r"^(TERRAIN_|HILLS_|LAND_|ROAD_|POWER_LINE_|FENCE_|ROOF_|BUILDING_EGGS_FARM_2_ROOF"
-            r"|TRUCK_|CARGO_|CRATES_|CARTONS_|LECTERN)"
+            r"|TRUCK_|CARGO_|CRATES_|CARTONS_)"
         ),
         aisle=NEVER,
         moving=re.compile(r"^(ROOF_|BUILDING_EGGS_FARM_2_ROOF|TRUCK_|CARGO_|CRATES_|CARTONS_)"),

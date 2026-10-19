@@ -109,7 +109,7 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - `ROOF_EGGS` est exclu du bake d'occlusion : retiré à la révélation, il ne doit pas assombrir ce qu'il couvrait.
 - Unités de la timeline : palettes (caisses ajourées sur palette, cartons filmés et cerclés) au lieu de blocs. Camions détaillés sans marque (cabine, vitrages, rétroviseurs, feux, essieux tandem, plateau à ridelles). Centre de conditionnement : portes de quai avec abris et butoirs, chariot élévateur statique.
 - Itinéraire de livraison redessiné à l'est des hangars (x = 45), marquages au sol ; plus aucune route ni aucun arbre ne traverse un bâtiment.
-- Garde-corps en verre (vue dégagée sur la ferme). Pupitre `LECTERN_PANEL_<FILIÈRE>` (contrat) : copie dans la scène du cartel affiché, le cartel DOM restant la source accessible.
+- Garde-corps en verre (vue dégagée sur la ferme). Pas de pupitre sur la terrasse : le cartel affiché reste celui du DOM (source accessible), sans copie dans la scène.
 - Pas de chanfrein sur les objets vus de loin et nombreux (caisses, bardage) : invisible à plus de 15 m, coûteux en triangles.
 
 ## Lot 3 : paysage

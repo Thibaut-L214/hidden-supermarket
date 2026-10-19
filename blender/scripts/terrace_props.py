@@ -43,8 +43,6 @@ def materials() -> None:
     M["deck"] = material("M_TRUCK_DECK", "#8F969A", roughness=0.6, metallic=0.3)
     M["forklift"] = material("M_FORKLIFT", "#C9A548", roughness=0.6)
     M["marking"] = material("M_ROAD_MARKING", "#E8E6DF", roughness=0.7)
-    M["lectern"] = material("M_LECTERN", "#8F969A", roughness=0.4, metallic=0.5)
-    M["lectern_panel"] = material("M_LECTERN_PANEL", "#F7F4EC", roughness=0.7)
     M["rail_glass"] = glass("M_RAIL_GLASS", "#D7E1E4", alpha=0.32)
 
 
@@ -279,22 +277,3 @@ def truck(name: str, cargo: str, unit, cab_mat, location, parent):
     # Six pallets, two abreast, three deep, loaded from the rear.
     unit_group(cargo, (-1.05, -4.15, 1.3), [(i, j) for j in range(3) for i in range(2)], unit, root, step=(1.1, 1.75))
     return root
-
-
-# --- terrace lectern --------------------------------------------------------------------------
-
-def lectern(chain: str, x: float, y: float, parent) -> None:
-    """Reading stand for the captions (diegetic copy of the on-screen caption).
-
-    Its panel LECTERN_PANEL_<CHAIN> faces the arriving visitor (-Y) and leans back 30°; the
-    runtime draws the current caption on it.
-    """
-    stand = MeshBuilder()
-    stand.box((x - 0.35, y - 0.25, 0.0), (x + 0.35, y + 0.25, 0.04), M["lectern"])
-    stand.box((x - 0.05, y - 0.05, 0.04), (x + 0.05, y + 0.05, 1.0), M["lectern"])
-    bevel(stand.build(f"LECTERN_{chain}", parent=parent), 0.01)
-    tilt = empty(f"LECTERN_{chain}_TILT", (x, y, 1.05), parent)
-    tilt.rotation_euler = (math.radians(-30), 0.0, 0.0)
-    panel = MeshBuilder().box((-0.45, -0.015, -0.3), (0.45, 0.015, 0.3), M["lectern_panel"])
-    bevel(panel.build(f"LECTERN_PANEL_{chain}", parent=tilt), 0.008)
-    helper_volume(box(f"COL_LECTERN_{chain}", (x - 0.4, y - 0.3, 0.0), (x + 0.4, y + 0.3, 1.2), None, parent))
