@@ -133,14 +133,10 @@ describe("ChainTimeline", () => {
     expect(visible(replayed.root, "CARGO")).toBe(visible(fresh.root, "CARGO"));
   });
 
-  it("shows the guide above the step under way and hides it at the end", () => {
-    const { root, truck } = module();
-    const timeline = new ChainTimeline(root, steps);
-    timeline.apply(evaluate(steps, 6));
-    expect(timeline.marker.visible).toBe(true);
-    expect(timeline.marker.position.x).toBeCloseTo(truck.position.x);
-    timeline.apply(evaluate(steps, 10));
-    expect(timeline.marker.visible).toBe(false);
+  it("does not add a guide cone above timeline targets", () => {
+    const { root } = module();
+    new ChainTimeline(root, steps).apply(evaluate(steps, 6));
+    expect(root.getObjectByName("TIMELINE_MARKER")).toBeUndefined();
   });
 });
 

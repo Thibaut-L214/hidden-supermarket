@@ -41,10 +41,9 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 
 ## Filière œufs (prototype)
 
-- Système d'élevage représenté : poules pondeuses en cages superposées (choix éditorial du 2026-10-19, qui remplace « non tranché »). `systemType` vaut `"Cages"`; les cartels restent `TODO_SOURCE` tant qu'aucune source n'est rattachée, et ne citent aucun chiffre (effectifs, surface par poule, durée de ponte).
+- Système d'élevage représenté : poules pondeuses en cages aménagées superposées (choix éditorial du 2026-10-19, qui remplace « non tranché »). `systemType` vaut `"Cages"`. Les cartels distinguent les minima réglementaires européens des statistiques françaises ; leur statut reste `review` jusqu'à validation éditoriale L214.
 - Les poules sont visibles : rangées de cages et poules stylisées dans le hangar (`HENS_EGGS`, `INTERIOR_EGGS`), affichées une fois le toit levé. Pas de geste ni d'animation, rien qui évoque la détresse (docs/DA.md §01).
-- Le chargement des poules ouvre la chronologie : caisses empilées portées de la porte de service au plateau d'un camion à ridelles ajourées (`TRUCK_EGGS_ANIMALS`, `HENCRATES_EGGS_HALL` → `HENCRATES_EGGS_TRUCK`, étape `carry`), puis départ du camion hors de la scène. C'est une étape distincte de la production des œufs ; deux cartels provisoires.
-- La destination des poules n'est pas montrée : ni abattoir ni fin de vie. Le camion des œufs reste un camion d'œufs.
+- La chronologie suit d'abord les œufs jusqu'au magasin. Elle montre ensuite la fin de la période de ponte : caisses empilées portées de la porte de service au plateau d'un camion à ridelles ajourées (`TRUCK_EGGS_ANIMALS`, `HENCRATES_EGGS_HALL` → `HENCRATES_EGGS_TRUCK`, étape `carry`), puis départ vers l'abattoir. Le trajet et l'abattoir restent hors champ. Le camion des œufs reste un camion d'œufs.
 - Cette décision remplace « fin de vie des poules : hors prototype », « aucun camion d'animaux » et « aucune poule » (GDD §06.4, lot 2).
 
 ## Conventions Blender / GLB (complément à TECH.md §03)

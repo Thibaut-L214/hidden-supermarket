@@ -1,17 +1,52 @@
-// Eggs shelf (docs/GDD.md §06). Every caption is a schematic description awaiting editorial
-// validation; none states a figure. Unknown facts stay TODO_SOURCE.
+// Eggs shelf (docs/GDD.md §06). Verified statements cite their source; scene-specific movements
+// remain explicitly schematic. Editorial review is still required before publication.
 import { TERRACE_EGGS_CONTRACT } from "../../core/assetContract";
 import type { ChainConfig } from "../../features/chains/ChainModule";
-import { TODO_SOURCE, type Caption } from "../../features/content/types";
+import type { Caption, SourceRef } from "../../features/content/types";
+
+const EU_LAYING_HENS: SourceRef = {
+  id: "eu-laying-hens-1999-74",
+  label: "Directive 1999/74/CE — normes minimales pour les poules pondeuses",
+  url: "https://eur-lex.europa.eu/legal-content/FR/TXT/?uri=CELEX:31999L0074",
+  publisher: "Conseil de l’Union européenne",
+  consultedAt: "2026-10-19",
+};
+
+const EU_EGGS_MARKETING: SourceRef = {
+  id: "eu-eggs-marketing-2023-2465",
+  label: "Règlement (UE) 2023/2465 — normes de commercialisation des œufs",
+  url: "https://eur-lex.europa.eu/eli/reg_del/2023/2465/oj?locale=fr",
+  publisher: "Commission européenne",
+  consultedAt: "2026-10-19",
+};
+
+const FR_EGGS_PRODUCTION: SourceRef = {
+  id: "fr-eggs-production-2024",
+  label: "La production d’œufs française — données 2024",
+  url: "https://agriculture.gouv.fr/la-production-doeufs-francaise",
+  publisher: "Ministère de l’Agriculture",
+  consultedAt: "2026-10-19",
+};
+
+const EFSA_POULTRY_TRANSPORT: SourceRef = {
+  id: "efsa-poultry-transport-2022",
+  label: "Avis scientifique sur le transport des oiseaux en conteneurs",
+  url: "https://www.efsa.europa.eu/en/efsajournal/pub/7441",
+  publisher: "Autorité européenne de sécurité des aliments (EFSA)",
+  consultedAt: "2026-10-19",
+};
 
 const schematic = (caption: Omit<Caption, "kind" | "status" | "scope"> & { scope?: string }) =>
   ({ kind: "schematic", status: "draft", scope: "Illustration", ...caption }) satisfies Caption;
+
+const verified = (caption: Omit<Caption, "kind" | "status">) =>
+  ({ kind: "verified", status: "review", ...caption }) satisfies Caption;
 
 export const eggs: ChainConfig = {
   id: "eggs",
   label: "Œufs",
   terrace: TERRACE_EGGS_CONTRACT,
-  // Stacked cages: editorial choice (docs/DECISIONS.md); the sources documenting it are pending.
+  // Stacked enriched cages: editorial choice documented in docs/DECISIONS.md.
   systemType: "Cages",
   terraceCaption: "eggs.terrace",
   revealCaption: "eggs.system",
@@ -24,34 +59,34 @@ export const eggs: ChainConfig = {
       detail:
         "Les bâtiments, la route et le centre de conditionnement sont rapprochés pour être visibles depuis la terrasse. Leur disposition ne reproduit aucune exploitation existante.",
     }),
-    schematic({
+    verified({
       id: "eggs.system",
-      title: "Poules pondeuses en cages",
+      title: "Cages aménagées",
       short:
-        "Représentation schématique de poules pondeuses en cages superposées, à sourcer avant toute diffusion.",
+        "Dans l’Union européenne, une cage aménagée offre au moins 750 cm² par poule.",
       detail:
-        "Le système représenté est un parti pris éditorial : des poules en cages superposées, regroupées en rangées. Les effectifs, l'espace par poule et la durée de ponte restent à documenter avant toute diffusion ; aucun chiffre n'est avancé ici.",
-      source: TODO_SOURCE,
-      scope: "À définir",
+        "Le minimum réglementaire est de 750 cm² par poule, dont 600 cm² utilisables. La cage doit aussi comporter un nid, une litière et au moins 15 cm de perchoir par poule. La vue schématise les rangées et ne montre pas tous ces équipements.",
+      source: EU_LAYING_HENS,
+      scope: "Union européenne, règles applicables aux cages aménagées",
     }),
-    schematic({
+    verified({
       id: "eggs.hens.load",
-      title: "Chargement des poules",
+      title: "Fin de la période de ponte",
       short:
-        "Des poules sont placées dans des caisses empilées, puis chargées sur un camion de transport.",
+        "À la fin de la période de ponte, les poules sont chargées en conteneurs pour quitter l’élevage.",
       detail:
-        "Étape illustrée : le déroulé réel (âge des poules, moment du chargement, durée) doit être documenté et validé avant diffusion. Cette étape est distincte de la production des œufs.",
-      source: TODO_SOURCE,
-      scope: "À définir",
+        "Cette séquence se déroule après le parcours des œufs. L’EFSA distingue la préparation, le chargement, le trajet, l’arrivée et la sortie des conteneurs. Elle relève notamment des risques de stress de manipulation et de blessures.",
+      source: EFSA_POULTRY_TRANSPORT,
+      scope: "Union européenne, avis scientifique adopté en 2022",
     }),
-    schematic({
+    verified({
       id: "eggs.hens.leave",
-      title: "Départ du camion",
-      short: "Le camion quitte l'exploitation avec les poules. Sa destination n'est pas montrée.",
+      title: "Transport vers l’abattoir",
+      short: "Le camion conduit les poules en fin de ponte vers un abattoir, hors champ dans cette scène.",
       detail:
-        "La suite du trajet des poules ne fait pas partie de cette scène. Elle sera traitée à part, à partir de sources vérifiées.",
-      source: TODO_SOURCE,
-      scope: "À définir",
+        "L’avis de l’EFSA examine spécifiquement le transport routier des poules en fin de ponte vers l’abattoir. La scène montre le départ du camion, mais pas le trajet ni l’arrivée.",
+      source: EFSA_POULTRY_TRANSPORT,
+      scope: "Union européenne, avis scientifique adopté en 2022",
     }),
     schematic({
       id: "eggs.collect",
@@ -60,70 +95,62 @@ export const eggs: ChainConfig = {
       detail:
         "Étape illustrée : la collecte est représentée par des caisses qui s'accumulent à la sortie du bâtiment. Le mode de collecte précis dépendra du système retenu.",
     }),
-    schematic({
+    verified({
       id: "eggs.transport",
-      title: "Transport",
-      short: "Un camion emporte les caisses vers un centre de tri et de conditionnement.",
+      title: "Vers le centre d’emballage",
+      short: "Dans le cas montré, un camion transporte les œufs vers un centre d’emballage agréé.",
       detail:
-        "Le trajet est raccourci pour rester visible. Ce camion transporte des œufs ; le transport des poules est une étape distincte, montrée avant.",
+        "Le centre d’emballage peut être installé sur le même site que l’élevage. Le camion illustre donc un circuit possible. Il transporte des œufs ; le transport des poules intervient après.",
+      source: EU_EGGS_MARKETING,
+      scope: "Union européenne, circuit schématique soumis aux règles de commercialisation",
     }),
-    schematic({
+    verified({
       id: "eggs.process",
       title: "Tri et conditionnement",
-      short: "Au centre, les œufs sont triés puis emballés pour la vente.",
+      short: "Les œufs de catégorie A sont triés par qualité et poids, puis marqués et emballés sous 10 jours.",
       detail:
-        "L'intérieur du centre n'est pas montré : seules les caisses qui entrent et les palettes qui sortent illustrent cette étape.",
+        "Dans l’Union européenne, un centre d’emballage classe les œufs de catégorie A par qualité et poids. Ils doivent être triés, marqués et emballés dans les 10 jours suivant la ponte. L’intérieur du centre n’est pas montré.",
+      source: EU_EGGS_MARKETING,
+      scope: "Union européenne, règlement applicable depuis 2023",
     }),
     schematic({
       id: "eggs.delivery",
       title: "Livraison",
-      short: "Les boîtes partent en camion vers le magasin, jusqu'au rayon.",
-      detail: "Le camion de livraison rejoint le magasin d'où vous êtes parti.",
+      short: "Dans le cas montré, les boîtes partent en camion vers le magasin, jusqu’au rayon.",
+      detail:
+        "Le camion de livraison rejoint le magasin d’où vous êtes parti. Cette scène ne représente pas les circuits de vente directe.",
     }),
-    schematic({
+    verified({
       id: "eggs.recap.system",
-      title: "Le système représenté",
-      short: "Poules pondeuses en cages superposées : une représentation à sourcer et valider avant diffusion.",
+      title: "Le système montré",
+      short: "Une cage aménagée offre au moins 750 cm² par poule, dont 600 cm² utilisables.",
       detail:
-        "Les conditions de vie des poules pondeuses diffèrent fortement selon le système. Ce cartel sera rédigé à partir de sources vérifiées pour le système retenu.",
-      source: TODO_SOURCE,
-      scope: "À définir",
+        "La réglementation exige aussi un nid, une litière permettant le picotage et le grattage, et au moins 15 cm de perchoir par poule. Ces minima ne décrivent pas toutes les conditions d’un élevage.",
+      source: EU_LAYING_HENS,
+      scope: "Union européenne, règles applicables aux cages aménagées",
     }),
-    schematic({
+    verified({
       id: "eggs.recap.steps",
-      title: "Les étapes",
+      title: "Du bâtiment au magasin",
       short:
-        "Chargement des poules, collecte des œufs, transport en caisses, tri et conditionnement, livraison au magasin.",
+        "Les œufs sont collectés, triés par qualité et poids, marqués, emballés, puis livrés au magasin.",
       detail:
-        "La filière des œufs passe par un centre de conditionnement entre l'élevage et le magasin : elle ne suit pas le même parcours que les filières de viande.",
+        "Le centre d’emballage sépare la qualité des œufs et leur poids avant la vente. La séquence des poules en fin de ponte intervient ensuite : elle ne fait pas partie du transport des œufs.",
+      source: EU_EGGS_MARKETING,
+      scope: "Union européenne, règlement applicable depuis 2023",
     }),
-    schematic({
+    verified({
       id: "eggs.recap.scope",
-      title: "Un cas, pas toute la filière",
+      title: "Un système minoritaire en France",
       short:
-        "Cette scène illustre un parcours type : les pratiques varient selon les exploitations.",
+        "En France, 72 % des poules pondeuses étaient élevées hors cage en 2024 : cette scène montre un autre système.",
       detail:
-        "Le parcours montré ne prétend pas représenter toutes les exploitations. Les sources consultables préciseront le pays, la période et le système concernés.",
+        "Le ministère de l’Agriculture indique que 72 % des poules pondeuses françaises étaient élevées hors cage en 2024. Le système en cages montré ici ne représente donc ni tous les élevages ni le système majoritaire en France.",
+      source: FR_EGGS_PRODUCTION,
+      scope: "France, données 2024 publiées en 2026",
     }),
   ],
   timeline: [
-    {
-      id: "load-hens",
-      event: "load",
-      durationSec: 7,
-      captionId: "eggs.hens.load",
-      from: "HENCRATES_EGGS_HALL",
-      to: "HENCRATES_EGGS_TRUCK",
-      carry: true,
-    },
-    {
-      id: "hens-leave",
-      event: "drive",
-      durationSec: 8,
-      captionId: "eggs.hens.leave",
-      vehicle: "TRUCK_EGGS_ANIMALS",
-      pathId: "PATH_EGGS_ANIMALS",
-    },
     {
       id: "collect",
       event: "collect",
@@ -178,8 +205,24 @@ export const eggs: ChainConfig = {
       captionId: "eggs.delivery",
       from: "CARGO_EGGS_DELIVERY",
     },
+    {
+      id: "load-hens",
+      event: "load",
+      durationSec: 7,
+      captionId: "eggs.hens.load",
+      from: "HENCRATES_EGGS_HALL",
+      to: "HENCRATES_EGGS_TRUCK",
+      carry: true,
+    },
+    {
+      id: "hens-leave",
+      event: "drive",
+      durationSec: 8,
+      captionId: "eggs.hens.leave",
+      vehicle: "TRUCK_EGGS_ANIMALS",
+      pathId: "PATH_EGGS_ANIMALS",
+    },
   ],
   recap: ["eggs.recap.system", "eggs.recap.steps", "eggs.recap.scope"],
-  // No source attached yet: every caption is a draft (docs/CONTENT_SCHEMA.md).
-  sources: [],
+  sources: [EU_LAYING_HENS, EU_EGGS_MARKETING, FR_EGGS_PRODUCTION, EFSA_POULTRY_TRANSPORT],
 };

@@ -50,7 +50,7 @@ export class TerraceStage {
   private stage: Stage | null = null;
   private readonly local = new Vector3();
   // Modules are cached by the asset manager: reuse what is built on them (material copies,
-  // guide marker) instead of rebuilding it on every visit.
+  // timeline state) instead of rebuilding it on every visit.
   private readonly built = new WeakMap<Object3D, { roof: RoofReveal; scene: ChainTimeline }>();
 
   constructor(private readonly deps: TerraceStageDeps) {

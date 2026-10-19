@@ -57,17 +57,57 @@ describe("chain configs", () => {
     },
   );
 
-  it("shows the hens' transport as a distinct, unsourced step, and never a slaughterhouse", () => {
-    // docs/DECISIONS.md, « Poules » : chargement et départ montrés, destination non montrée.
+  it("follows the eggs to the store before the separate end-of-lay sequence", () => {
+    const { timeline } = CHAINS.eggs!;
+    expect(timeline.map((step) => step.id)).toEqual([
+      "collect",
+      "load-farm",
+      "to-packing",
+      "process",
+      "load-delivery",
+      "to-store",
+      "deliver",
+      "load-hens",
+      "hens-leave",
+    ]);
+  });
+
+  it("documents the caged-hen case without presenting it as the French majority", () => {
+    const { captions, sources } = CHAINS.eggs!;
+    const system = captions.find((caption) => caption.id === "eggs.system")!;
+    const transport = captions.find((caption) => caption.id === "eggs.transport")!;
+    const scope = captions.find((caption) => caption.id === "eggs.recap.scope")!;
+
+    expect(system.kind).toBe("verified");
+    expect(system.short).toContain("750 cm²");
+    expect(system.detail).toContain("600 cm² utilisables");
+    expect(system.detail).toContain("15 cm de perchoir");
+    expect(system.detail).toContain("ne montre pas tous ces équipements");
+    expect(transport.kind).toBe("verified");
+    expect(transport.detail).toContain("peut être installé sur le même site");
+    expect(scope.kind).toBe("verified");
+    expect(scope.short).toContain("72 %");
+    expect(scope.short).toContain("hors cage");
+    expect(sources.map((source) => source.id)).toEqual([
+      "eu-laying-hens-1999-74",
+      "eu-eggs-marketing-2023-2465",
+      "fr-eggs-production-2024",
+      "efsa-poultry-transport-2022",
+    ]);
+  });
+
+  it("identifies the hens' end-of-lay transport and its off-screen destination", () => {
     const { timeline, captions } = CHAINS.eggs!;
     const animalSteps = timeline.filter((s) => /HENCRATES|ANIMALS/.test(`${s.from}${s.to}${s.vehicle}`));
     expect(animalSteps.map((s) => s.id)).toEqual(["load-hens", "hens-leave"]);
     for (const step of animalSteps) {
       const caption = captions.find((c) => c.id === step.captionId)!;
-      expect(caption.source).toBe(TODO_SOURCE);
-      expect(caption.status).toBe("draft");
+      expect(caption.kind).toBe("verified");
+      expect(caption.source).not.toBe(TODO_SOURCE);
+      expect(caption.status).toBe("review");
     }
-    const names = timeline.flatMap((s) => [s.from, s.to, s.vehicle, s.pathId]);
-    expect(names.join(" ")).not.toMatch(/SLAUGHTER|ABATTOIR/i);
+    expect(captions.find((caption) => caption.id === "eggs.hens.leave")!.short).toMatch(
+      /abattoir/i,
+    );
   });
 });

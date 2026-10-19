@@ -4,9 +4,6 @@
 import {
   Box3,
   CatmullRomCurve3,
-  ConeGeometry,
-  Mesh,
-  MeshBasicMaterial,
   type Object3D,
   Vector3,
 } from "three";
@@ -14,8 +11,6 @@ import { ease } from "../../core/easing";
 import type { TimelineStep } from "./ChainModule";
 import type { TimelineState } from "./TimelineDirector";
 
-/** Height of the guide marker above its target, in metres. */
-const MARKER_HEIGHT = 6;
 /** Share of a carry step during which one unit is on its way; units start one after another. */
 const CARRY_WINDOW = 0.4;
 /** Height of the arc a carried unit follows, in metres. */
@@ -49,16 +44,13 @@ export class ChainTimeline {
   private readonly vehicles = new Map<string, Object3D>();
   /** Groups whose units are present before anything happens (sources nobody fills). */
   private readonly initiallyFull = new Set<string>();
-  /** Discreet guide above the step under way (docs/DA.md §05: graphic links, no dashboard). */
-  readonly marker: Mesh;
   private readonly tangent = new Vector3();
-  private readonly world = new Vector3();
   /** Rest position of every unit that a carry step moves, restored on each apply. */
   private readonly rest = new Map<Object3D, Vector3>();
   private readonly box = new Box3();
 
   constructor(
-    private readonly root: Object3D,
+    root: Object3D,
     private readonly steps: readonly TimelineStep[],
   ) {
     const find = (name: string) => {
@@ -86,17 +78,10 @@ export class ChainTimeline {
       }
     }
 
-    this.marker = new Mesh(
-      new ConeGeometry(0.9, 1.8, 16).rotateX(Math.PI),
-      new MeshBasicMaterial({ color: "#5f8a58", transparent: true, opacity: 0.85, fog: false }),
-    );
-    this.marker.name = "TIMELINE_MARKER";
-    this.marker.visible = false;
-    root.add(this.marker);
     this.apply(null);
   }
 
-  /** Poses the module for a timeline state; null gives the start state with no guide. */
+  /** Poses the module for a timeline state; null gives the start state. */
   apply(state: TimelineState | null): void {
     for (const [unit, position] of this.rest) unit.position.copy(position);
     for (const [name, units] of this.groups) {
@@ -113,7 +98,6 @@ export class ChainTimeline {
         if (p > 0) this.applyStep(step, p);
       });
     }
-    this.placeMarker(state);
   }
 
   private applyStep(step: TimelineStep, p: number): void {
@@ -189,16 +173,5 @@ export class ChainTimeline {
     curve.getTangentAt(Math.min(u, 0.999), this.tangent);
     // Vehicles face their local -Z (Blender +Y).
     vehicle.rotation.set(0, Math.atan2(-this.tangent.x, -this.tangent.z), 0);
-  }
-
-  private placeMarker(state: TimelineState | null): void {
-    const step = state && !state.done ? this.steps[state.active] : undefined;
-    const name = step && (step.vehicle ?? step.to ?? step.from);
-    const target = name ? (this.vehicles.get(name) ?? this.root.getObjectByName(name)) : undefined;
-    this.marker.visible = Boolean(target);
-    if (!target) return;
-    target.getWorldPosition(this.world);
-    this.root.worldToLocal(this.world);
-    this.marker.position.set(this.world.x, this.world.y + MARKER_HEIGHT, this.world.z);
   }
 }
