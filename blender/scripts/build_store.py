@@ -333,6 +333,12 @@ def parvis(root) -> None:
     outside.volunteer("VOLUNTEER_01", -3.6, -13.0, -math.pi / 2, 0, plaza)
     outside.volunteer("VOLUNTEER_02", 3.9, -14.5, math.pi / 2, 1, plaza)
     outside.volunteer("VOLUNTEER_03", -6.0, -19.4, -math.pi / 2 + 0.3, 2, plaza)
+    # Two more hold a banner on the east side, facing the store: seen straight ahead on the way
+    # out, clear of the walkway. Poles stand 0.25 m inside each person, 0.3 m in front of them.
+    banner_y = -20.5
+    outside.volunteer("VOLUNTEER_04", 3.9, banner_y, 0.0, 3, plaza, pose="banner", pole_x=0.25)
+    outside.volunteer("VOLUNTEER_05", 8.1, banner_y, 0.0, 4, plaza, pose="banner", pole_x=-0.25)
+    outside.banner("BANNER_PARVIS", 3.9 + 0.25, 8.1 - 0.25, banner_y + 0.3, 0.95, 2.2, plaza)
 
     # Walking past the volunteers opens the end menu.
     helper_volume(box("TRIGGER_PARVIS", (-10.0, -18.0, 0.0), (10.0, -16.0, 2.4), None, plaza))

@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from common import apply_modifiers, bake_ambient_occlusion, export_glb, rendered_meshes  # noqa: E402
 from lightmap import PROFILES, bake_lightmap, build_lightmap_uvs, isolation_key  # noqa: E402
-from surfaces import project_goods_uvs, project_surface_uvs  # noqa: E402
+from surfaces import project_brand_uvs, project_goods_uvs, project_surface_uvs  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
 paths = [a for a in argv if not a.startswith("--")]
@@ -38,6 +38,7 @@ os.makedirs(os.path.dirname(out), exist_ok=True)
 meshes = rendered_meshes()
 apply_modifiers(meshes)
 print(f"UV0 projected on {project_surface_uvs(meshes)} textured meshes, {project_goods_uvs(meshes)} product parts")
+print(f"{project_brand_uvs(meshes)} printed faces mapped")
 lit = set()
 profile = None
 profile_name = next((a.split("=", 1)[1] for a in argv if a.startswith("--lightmap=")), None)

@@ -123,7 +123,7 @@ Chaque filière doit posséder une fiche de validation : territoire, espèce, ty
 
 - Menu proposé : « Découvrir L214 », « Lire les enquêtes », « Agir », « Faire un don », « Revenir dans le magasin ».
 - Liens officiels à vérifier lors de l’intégration ; ouverture externe explicite et sans redirection automatique.
-- Ne pas utiliser le logo officiel ou présenter le projet comme une campagne validée sans accord de l’association.
+- Ne pas utiliser le logo officiel ou présenter le projet comme une campagne validée sans accord de l’association. Tracts et banderole du parvis portent un mot-symbole de substitution jusqu’à la remise du fichier validé (docs/DECISIONS.md).
 - L’utilisateur peut fermer le menu et terminer sans contribution.
 ### Mesures qualité / tests
 

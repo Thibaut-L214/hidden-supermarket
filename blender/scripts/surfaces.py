@@ -156,3 +156,70 @@ def _map_part(mesh, part, uv) -> None:
             v = (b - b.min()) / max(b.max() - b.min(), 1e-6)
             cell = "box"
         uv[list(loops)] = _cell_uv(cell, u, v)
+
+
+# --- printed faces (logo on leaflets and banner) -------------------------------------------------
+# Each connected group of faces with a brand material shows its image once, upright and readable
+# from outside: right = (looking direction) × up, with up the world Z projected on the group's mean
+# plane (world Y for faces that lie flat), and the group's extent spanning the whole image.
+
+def brand_materials() -> set[str]:
+    with open(SURFACES_PATH, encoding="utf-8") as f:
+        return set(json.load(f).get("brand", {}))
+
+
+def project_brand_uvs(objects) -> int:
+    """Overwrites UV0 on brand-material faces; returns the number of printed faces mapped."""
+    from mathutils import Vector
+
+    names = brand_materials()
+    mapped = 0
+    for obj in objects:
+        mesh = obj.data
+        slots = {i for i, m in enumerate(mesh.materials) if m and m.name in names}
+        if not slots or UV_NAME not in mesh.uv_layers:
+            continue
+        layer = mesh.uv_layers[UV_NAME]
+        uv = np.empty(len(mesh.loops) * 2, dtype=np.float32)
+        layer.data.foreach_get("uv", uv)
+        uv = uv.reshape(-1, 2)
+
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bm.normal_update()
+        bm.faces.ensure_lookup_table()
+        seen: set[int] = set()
+        for start in bm.faces:
+            if start.index in seen or mesh.polygons[start.index].material_index not in slots:
+                continue
+            seen.add(start.index)
+            stack, group = [start], []
+            while stack:
+                face = stack.pop()
+                group.append(face)
+                for vert in face.verts:
+                    for other in vert.link_faces:
+                        if other.index not in seen and mesh.polygons[other.index].material_index in slots:
+                            seen.add(other.index)
+                            stack.append(other)
+            normal = sum((f.normal for f in group), Vector()).normalized()
+            up = Vector((0.0, 0.0, 1.0)) - normal * normal.z
+            if up.length < 0.3:
+                up = Vector((0.0, 1.0, 0.0)) - normal * normal.y
+            up.normalize()
+            right = (-normal).cross(up).normalized()
+            coords = {}
+            for face in group:
+                poly = mesh.polygons[face.index]
+                for k, vert in zip(range(poly.loop_start, poly.loop_start + poly.loop_total), face.verts):
+                    coords[k] = (vert.co.dot(right), vert.co.dot(up))
+            us = [c[0] for c in coords.values()]
+            vs = [c[1] for c in coords.values()]
+            u0, v0 = min(us), min(vs)
+            du, dv = max(max(us) - u0, 1e-6), max(max(vs) - v0, 1e-6)
+            for k, (u, v) in coords.items():
+                uv[k] = ((u - u0) / du, (v - v0) / dv)
+            mapped += len(group)
+        bm.free()
+        layer.data.foreach_set("uv", uv.ravel())
+    return mapped

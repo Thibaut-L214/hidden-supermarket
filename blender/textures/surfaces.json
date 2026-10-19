@@ -1,17 +1,57 @@
 {
   "_doc": "Tileable PBR sets (docs/DA.md §04: reusable atlases, detail through normal maps). `tile` is the world size in metres of one repeat, used by the export-time box projection (blender/scripts/surfaces.py) and the texture generator (blender/scripts/make_textures.py). `normalScale` is the glTF normalTexture scale. Textures are applied to the GLB by scripts/lib/surfaces.mjs, by material name. Colour textures only modulate the material's base colour (values just under 1), roughness textures only modulate its roughness.",
   "sets": {
-    "floor": { "tile": 1.2, "size": 512, "normalScale": 0.8 },
-    "plaster": { "tile": 2.0, "size": 512, "normalScale": 0.35 },
-    "concrete": { "tile": 2.0, "size": 512, "normalScale": 1.0 },
-    "metal": { "tile": 0.6, "size": 512, "normalScale": 0.15 },
-    "paint": { "tile": 0.5, "size": 256, "normalScale": 0.5 },
-    "carton": { "tile": 0.4, "size": 512, "normalScale": 0.8 },
-    "wood": { "tile": 0.8, "size": 512, "normalScale": 0.8 },
-    "grass": { "tile": 6.0, "size": 512, "normalScale": 0.6 },
-    "soil": { "tile": 4.0, "size": 512, "normalScale": 0.9 }
+    "floor": {
+      "tile": 1.2,
+      "size": 512,
+      "normalScale": 0.8
+    },
+    "plaster": {
+      "tile": 2.0,
+      "size": 512,
+      "normalScale": 0.35
+    },
+    "concrete": {
+      "tile": 2.0,
+      "size": 512,
+      "normalScale": 1.0
+    },
+    "metal": {
+      "tile": 0.6,
+      "size": 512,
+      "normalScale": 0.15
+    },
+    "paint": {
+      "tile": 0.5,
+      "size": 256,
+      "normalScale": 0.5
+    },
+    "carton": {
+      "tile": 0.4,
+      "size": 512,
+      "normalScale": 0.8
+    },
+    "wood": {
+      "tile": 0.8,
+      "size": 512,
+      "normalScale": 0.8
+    },
+    "grass": {
+      "tile": 6.0,
+      "size": 512,
+      "normalScale": 0.6
+    },
+    "soil": {
+      "tile": 4.0,
+      "size": 512,
+      "normalScale": 0.9
+    }
   },
-  "goods": { "prefix": "M_GOODS_", "normal": "goods_normal.jpg", "normalScale": 1.0 },
+  "goods": {
+    "prefix": "M_GOODS_",
+    "normal": "goods_normal.jpg",
+    "normalScale": 1.0
+  },
   "materials": {
     "M_STORE_FLOOR": "floor",
     "M_STORE_WALL": "plaster",
@@ -90,5 +130,9 @@
     "M_ROAD_SHOULDER": "soil",
     "M_PLANTER_SOIL": "soil",
     "M_TREE_BARK": "wood"
+  },
+  "brand": {
+    "M_LEAFLET_L214": "brand/brand_leaflet.jpg",
+    "M_BANNER_L214": "brand/brand_banner.jpg"
   }
 }

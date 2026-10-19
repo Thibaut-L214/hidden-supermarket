@@ -215,6 +215,47 @@ class MeshBuilder:
             smooth_sides=True,
         )
 
+    def limb(
+        self,
+        start: tuple[float, float, float],
+        end: tuple[float, float, float],
+        r_start: float,
+        r_end: float,
+        mat: bpy.types.Material | None = None,
+        segments: int = 8,
+    ) -> "MeshBuilder":
+        """Tapered tube between two points (arms, legs, poles at any angle), smooth-shaded."""
+        a, b = Vector(start), Vector(end)
+        direction = b - a
+        if direction.length < 1e-6:
+            return self
+        turn = Vector((0.0, 0.0, 1.0)).rotation_difference(direction.normalized()).to_matrix().to_4x4()
+        matrix = Matrix.Translation((a + b) / 2) @ turn
+        return self._primitive(
+            lambda: bmesh.ops.create_cone(
+                self.bm, cap_ends=True, segments=segments, radius1=r_start, radius2=r_end, depth=direction.length, matrix=matrix
+            ),
+            mat,
+            smooth_sides=True,
+        )
+
+    def quad(
+        self,
+        corners: tuple[tuple[float, float, float], ...],
+        mat: bpy.types.Material | None = None,
+        facing: tuple[float, float, float] | None = None,
+    ) -> "MeshBuilder":
+        """Single face; `facing` (a direction it should look towards) fixes the winding. Use a
+        builder with recalc_normals=False: open faces have no inside to orient them by."""
+        verts = [self.bm.verts.new(c) for c in corners]
+        face = self.bm.faces.new(verts)
+        face.material_index = self._slot(mat)
+        if facing is not None:
+            face.normal_update()
+            if face.normal.dot(Vector(facing)) < 0:
+                face.normal_flip()
+        return self
+
     def oriented_box(
         self,
         centre: tuple[float, float, float],

@@ -30,7 +30,7 @@ function textureCache(doc) {
 
 /** Returns how many materials received a surface set. */
 export function applySurfaces(doc) {
-  const { sets, goods, materials: mapping } = JSON.parse(
+  const { sets, goods, brand = {}, materials: mapping } = JSON.parse(
     readFileSync(resolve(TEXTURES, "surfaces.json"), "utf8"),
   );
   const texture = textureCache(doc);
@@ -55,6 +55,15 @@ export function applySurfaces(doc) {
     material
       .setNormalTexture(texture(goods.normal, "goods_normal"))
       .setNormalScale(goods.normalScale);
+    bound += 1;
+  }
+  // Printed faces (logo on leaflets and banner): the image is the colour, so no tint.
+  for (const material of doc.getRoot().listMaterials()) {
+    const file = brand[material.getName()];
+    if (!file) continue;
+    material
+      .setBaseColorFactor([1, 1, 1, 1])
+      .setBaseColorTexture(texture(file, file.replace(/\W+/g, "_")));
     bound += 1;
   }
   // UV0 is dead weight on primitives whose material took no texture.
