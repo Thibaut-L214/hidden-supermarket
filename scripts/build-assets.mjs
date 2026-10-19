@@ -44,6 +44,7 @@ const ASSETS = [
     blend: "blender/terrace_beef.blend",
     builder: "blender/scripts/build_terrace_beef.py",
     glb: "public/assets/beef/terrace_beef.glb",
+    lightmap: "terrace",
   },
 ];
 

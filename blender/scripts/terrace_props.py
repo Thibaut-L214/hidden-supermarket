@@ -52,7 +52,7 @@ def materials() -> None:
 
 # --- henhouse structure ----------------------------------------------------------------------
 
-def house_structure(name: str, x0: float, x1: float, y0: float, y1: float, z0: float, wall_h: float, ridge: float, parent) -> None:
+def house_structure(name: str, x0: float, x1: float, y0: float, y1: float, z0: float, wall_h: float, ridge: float, parent, bays: int = 14) -> None:
     """Portal frames, purlins and ridge beam under the roof; visible once the roof is removed.
 
     The rafters follow the roof pitch (gable from the eaves at z0 + wall_h up `ridge` metres).
@@ -63,7 +63,6 @@ def house_structure(name: str, x0: float, x1: float, y0: float, y1: float, z0: f
     half_span = ym - (y0 + 0.4)
     pitch = math.atan2(ridge - 0.25, half_span)
     rafter = math.hypot(half_span, ridge - 0.25)
-    bays = 14
     for i in range(bays + 1):
         x = x0 + 0.6 + i * (x1 - x0 - 1.2) / bays
         for yc in (y0 + 0.4, y1 - 0.4):

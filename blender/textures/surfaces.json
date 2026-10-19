@@ -129,7 +129,12 @@
     "M_LAND_YARD": "soil",
     "M_ROAD_SHOULDER": "soil",
     "M_PLANTER_SOIL": "soil",
-    "M_TREE_BARK": "wood"
+    "M_TREE_BARK": "wood",
+    "M_BEEF_STRAW": "soil",
+    "M_BEEF_FEED": "soil",
+    "M_BEEF_HAY": "grass",
+    "M_BEEF_CARTON": "carton",
+    "M_BEEF_TARP": "paint"
   },
   "brand": {
     "M_LEAFLET_L214": "brand/brand_leaflet.jpg",
