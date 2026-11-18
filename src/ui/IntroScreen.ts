@@ -1,7 +1,7 @@
 import type { Settings } from "../app/settings";
 import { bindSettingsControls } from "./settingsControls";
 
-/** Welcome dialog (docs/GDD.md §03.1): intent, controls, content notice, reduced motion, start. */
+/** Welcome dialog (docs/GDD.md §03.1): intent, controls, content notice, sound, reduced motion, start. */
 export class IntroScreen {
   private readonly start: HTMLButtonElement;
   private retry: (() => void) | null = null;
@@ -10,9 +10,10 @@ export class IntroScreen {
     private readonly root: HTMLElement,
     settings: Settings,
     onStart: () => void,
+    onSettingsChange: () => void = () => {},
   ) {
     this.start = root.querySelector<HTMLButtonElement>("#intro-start")!;
-    bindSettingsControls(root, settings);
+    bindSettingsControls(root, settings, onSettingsChange);
     this.start.addEventListener("click", () => {
       if (this.retry) {
         const retry = this.retry;

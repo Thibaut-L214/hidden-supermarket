@@ -7,6 +7,8 @@ export interface Settings {
   moveSpeed: number;
   /** Master volume in [0, 1]; 0 is the no-audio mode. */
   volume: number;
+  /** Silences every sound without losing the chosen volume. */
+  muted: boolean;
   reducedMotion: boolean;
   /** Text descriptions of sound cues. */
   subtitles: boolean;
@@ -31,8 +33,14 @@ export function defaultSettings(prefersReducedMotion: boolean): Settings {
     mouseSensitivity: 0.002,
     moveSpeed: 2.2,
     volume: 0.7,
+    muted: false,
     reducedMotion: prefersReducedMotion,
     subtitles: true,
     lowQuality: false,
   };
+}
+
+/** Volume actually sent to the audio output: 0 when muted. */
+export function effectiveVolume(settings: Pick<Settings, "volume" | "muted">): number {
+  return settings.muted ? 0 : settings.volume;
 }

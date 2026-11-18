@@ -48,7 +48,7 @@ import { createErrorLog, recoverFromError } from "./errors";
 import { PostProcessing } from "./postprocessing";
 import { createRenderer } from "./renderer";
 import { Session, trackExploration } from "./session";
-import { defaultSettings } from "./settings";
+import { defaultSettings, effectiveVolume } from "./settings";
 
 function element<T extends HTMLElement>(selector: string): T {
   const found = document.querySelector<T>(selector);
@@ -122,7 +122,7 @@ function applySettings(): void {
   renderer.setPixelRatio(settings.lowQuality ? 1 : Math.min(window.devicePixelRatio, 2));
   atmosphere.setShadows(!settings.lowQuality);
   if (postFx) postFx.enabled = !settings.lowQuality;
-  soundscape.setVolume(settings.volume);
+  soundscape.setVolume(effectiveVolume(settings));
   resize();
 }
 applySettings();
@@ -177,11 +177,16 @@ const pauseMenu = new PauseMenu(
   },
   applySettings,
 );
-const intro = new IntroScreen(element("#intro"), settings, () => {
-  soundscape.start();
-  game.send({ type: "START" });
-  resume();
-});
+const intro = new IntroScreen(
+  element("#intro"),
+  settings,
+  () => {
+    soundscape.start();
+    game.send({ type: "START" });
+    resume();
+  },
+  applySettings,
+);
 const recap = new RecapPanel(element("#recap"), {
   onReplay: () => {
     recap.hide();
