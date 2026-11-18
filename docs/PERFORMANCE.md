@@ -42,6 +42,30 @@ Compteurs par image, passes d'ombre et de post-processing comprises (GTAO redess
 
 La qualité réduite (menu pause) coupe tout le post-processing : rendu direct, MSAA du canvas, pixel ratio 1, pas d'ombres. Cible de repli si les machines modestes ne tiennent pas 30 fps : garder le bloom et SMAA, couper GTAO (`POST_SETTINGS` dans `src/app/postprocessing.ts`).
 
+## Relevé du 2026-11-18, après le lot « rendu abouti » (fenêtre 1280 × 800)
+
+Compteurs par image, toutes passes comprises (ombres, reflet du sol, GTAO), lus dans `renderer.info`. Ombre du soleil en 4096 px.
+
+| Vue | Draw calls | Triangles | Avant ce lot |
+| --- | ---: | ---: | --- |
+| Magasin, vue de départ (reflet du sol actif) | 525 | 530 000 | 497 / 490 000 |
+| Terrasse œufs, chaîne en cours | 621 | 505 000 | 546 / 992 000 |
+| Terrasse bœuf, chaîne en cours | 806 | 392 000 | non relevé |
+| Parvis, face à la façade | 547 | 433 000 | non relevé avec post-processing |
+| Parvis, vue vers le parking | 137 | 110 000 | non relevé avec post-processing |
+| Parvis, face à la façade, qualité réduite | 270 | 219 000 | — |
+
+| Ressource | Triangles | Avant | Servi |
+| --- | ---: | ---: | ---: |
+| `store.glb` | 181 364 | 227 472 | 6,5 Mo |
+| `terrace_eggs.glb` | 118 677 | 272 010 | 5,7 Mo |
+| `terrace_beef.glb` | 86 743 | 220 192 | 5,2 Mo |
+| `scanner_hand.glb` | 5 872 | 4 488 | 65 Ko |
+
+- Les appels de dessin restent au-dessus de la cible de 150 par passe sur la terrasse bœuf (317 primitives dans le GLB) : prochain levier, fusionner les petits objets par matériau.
+- Le reflet du sol redessine le magasin une fois (cible 512 px) ; il ne tourne que lorsque le joueur est sur le sol et jamais en qualité réduite.
+- fps et p95 toujours non mesurés sur matériel cible.
+
 ## Non mesuré
 
 - **fps et p95 réels** : la session de développement tournait dans un onglet en arrière-plan, sans `requestAnimationFrame`. À relever sur les machines cibles (Chrome, Firefox, Safari desktop) avec l'encart `?perf`, en parcourant magasin, terrasse pendant la chaîne et parvis.

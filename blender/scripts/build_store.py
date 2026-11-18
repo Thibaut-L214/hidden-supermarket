@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import math  # noqa: E402
 
 import bpy  # noqa: E402
-import landscape_props as land  # noqa: E402
+import pack_atlas as atlas  # noqa: E402
 import parvis_props as outside  # noqa: E402
 import store_props as props  # noqa: E402
 from common import (  # noqa: E402
@@ -66,12 +66,10 @@ def materials() -> None:
     M["planter"] = material("M_PARVIS_PLANTER", "#B7A58E", roughness=0.9)
     M["egg_brown"] = material("M_EGG_BROWN", "#E2C9A6", roughness=0.55)
     M["egg_cream"] = material("M_EGG_CREAM", "#F2EBDD", roughness=0.55)
-    M["sticker"] = material("M_CARTON_STICKER", "#F6F1E4", roughness=0.6)
     M["shelf_light"] = material("M_SHELF_LIGHT", "#FFFFFF", emission="#FFF4E2", emission_strength=1.4)
-    M["skirting"] = material("M_SKIRTING", "#B9B2A3", roughness=0.6)
+    M["skirting"] = material("M_SKIRTING", "#A69E8E", roughness=0.55)
     props.materials()
     outside.materials()
-    land.materials()
 
 
 def inner_walls(root) -> None:
@@ -95,20 +93,63 @@ def inner_walls(root) -> None:
     g.build("STORE_WALLS_INNER", parent=root)
 
     trim = MeshBuilder()
-    for z0, z1, mat in ((0.0, 0.1, M["skirting"]), (3.05, 3.2, M["accent"])):
+    # Skirting board (14 cm, with a slimmer cap moulding) and the accent band under the ceiling.
+    for z0, z1, t, mat in ((0.0, 0.12, 0.028, M["skirting"]), (0.12, 0.14, 0.018, M["skirting"]), (3.05, 3.2, 0.02, M["accent"])):
         # Openings interrupt the trim only below their lintel.
         for x0, x1 in ((-hx, -OPENING_HALF_W), (OPENING_HALF_W, 4.5), (7.5, hx)):
-            trim.box((x0, hy - 0.02, z0), (x1, hy, z1), mat)
+            trim.box((x0, hy - t, z0), (x1, hy, z1), mat)
         if z0 > OPENING_H:
-            trim.box((-OPENING_HALF_W, hy - 0.02, z0), (OPENING_HALF_W, hy, z1), mat)
-            trim.box((4.5, hy - 0.02, z0), (7.5, hy, z1), mat)
+            trim.box((-OPENING_HALF_W, hy - t, z0), (OPENING_HALF_W, hy, z1), mat)
+            trim.box((4.5, hy - t, z0), (7.5, hy, z1), mat)
         for x0, x1 in ((-hx, -ENTRANCE_HALF_W), (ENTRANCE_HALF_W, hx)):
-            trim.box((x0, -hy, z0), (x1, -hy + 0.02, z1), mat)
+            trim.box((x0, -hy, z0), (x1, -hy + t, z1), mat)
         if z0 > 2.6:
-            trim.box((-ENTRANCE_HALF_W, -hy, z0), (ENTRANCE_HALF_W, -hy + 0.02, z1), mat)
-        trim.box((hx - 0.02, -hy, z0), (hx, hy, z1), mat)
-        trim.box((-hx, -hy, z0), (-hx + 0.02, hy, z1), mat)
+            trim.box((-ENTRANCE_HALF_W, -hy, z0), (ENTRANCE_HALF_W, -hy + t, z1), mat)
+        trim.box((hx - t, -hy, z0), (hx, hy, z1), mat)
+        trim.box((-hx, -hy, z0), (-hx + t, hy, z1), mat)
     bevel(trim.build("STORE_WALL_TRIM", parent=root), 0.004)
+    posters(root)
+
+
+def posters(root) -> None:
+    """Framed generic posters on the bare stretches of wall (fictitious artwork from the printed
+    atlas: soft shapes and bars standing for text, no claim). One mesh, one material: the frames
+    take a plain swatch of the same atlas."""
+    p = MeshBuilder(recalc_normals=False)
+    hx, hy = HALF_X, HALF_Y
+    frame = atlas.uv(atlas.swatch("dark"), 8)
+    ratio = atlas.POSTER_H / atlas.POSTER_W
+    # (wall, position along the wall, bottom, width, design)
+    places = (
+        ("N", -9.2, 1.0, 1.2, 0), ("N", -5.6, 1.0, 1.2, 1), ("N", 3.0, 1.05, 1.0, 2), ("N", 9.6, 1.0, 1.2, 3),
+        ("S", -6.4, 1.15, 1.2, 2), ("S", 6.4, 1.15, 1.2, 0),
+        ("W", -7.0, 1.15, 1.1, 3), ("E", -7.0, 1.15, 1.1, 1),
+        ("W", -2.6, 3.32, 0.95, 1), ("W", 2.6, 3.32, 0.95, 2), ("E", -2.6, 3.32, 0.95, 0), ("E", 2.6, 3.32, 0.95, 3),
+    )
+    for wall, at, z0, width, design in places:
+        z1 = z0 + width * ratio
+        a0, a1 = at - width / 2, at + width / 2
+        art = atlas.uv(atlas.poster(design), 3)
+        m, d, proud = 0.035, 0.022, 0.026  # frame margin, frame depth, artwork plane
+        if wall in ("N", "S"):
+            side = 1 if wall == "N" else -1  # the wall's Y; the poster looks the other way
+            y_wall = side * hy
+            lo_y, hi_y = sorted((y_wall, y_wall - side * d))
+            key = "-y" if side > 0 else "+y"
+            faces = {key: frame, "-x": frame, "+x": frame, "+z": frame, "-z": frame}
+            props.pack_box(p, (a0 - m, lo_y, z0 - m), (a1 + m, hi_y, z1 + m), faces)
+            y_art = y_wall - side * proud
+            props.pack_box(p, (a0, min(y_art, y_wall), z0), (a1, max(y_art, y_wall), z1), {key: art})
+        else:
+            side = 1 if wall == "E" else -1
+            x_wall = side * hx
+            lo_x, hi_x = sorted((x_wall, x_wall - side * d))
+            key = "-x" if side > 0 else "+x"
+            faces = {key: frame, "-y": frame, "+y": frame, "+z": frame, "-z": frame}
+            props.pack_box(p, (lo_x, a0 - m, z0 - m), (hi_x, a1 + m, z1 + m), faces)
+            x_art = x_wall - side * proud
+            props.pack_box(p, (min(x_art, x_wall), a0, z0), (max(x_art, x_wall), a1, z1), {key: art})
+    p.build("STORE_POSTERS", parent=root)["uv_authored"] = True
 
 
 def shell(root) -> None:
@@ -198,9 +239,10 @@ def generic_shelving(root) -> None:
     props.fridge_run("FRIDGE_E", HALF_X, -1, -5.0, 8, root)
 
 
-def carton(b: MeshBuilder, x0: float, x1: float, y0: float, y1: float, z: float, mat, open_eggs: MeshBuilder | None) -> None:
-    """Six-egg carton, unbranded: tray, ribbed lid and a blank sticker. When `open_eggs` is
-    given, the lid stands open towards the wall and six eggs show in the tray."""
+def carton(b: MeshBuilder, x0: float, x1: float, y0: float, y1: float, z: float, mat, open_eggs: MeshBuilder | None, labels: MeshBuilder, design: int) -> None:
+    """Six-egg carton, unbranded: tray, ribbed lid and a generic printed label (bars for text).
+    When `open_eggs` is given, the lid stands open towards the wall and six eggs show in the
+    tray."""
     tray = 0.055
     b.box((x0, y0, z), (x1, y1, z + tray), mat)
     if open_eggs is None:
@@ -208,7 +250,7 @@ def carton(b: MeshBuilder, x0: float, x1: float, y0: float, y1: float, z: float,
         for k in (1, 2):
             rx = x0 + k * (x1 - x0) / 3
             b.box((rx - 0.006, y0 + 0.02, z + 0.1), (rx + 0.006, y1 - 0.02, z + 0.11), mat)
-        b.box((x0 + 0.04, y0 - 0.002, z + 0.062), (x1 - 0.04, y0, z + 0.092), M["sticker"])
+        props.pack_box(labels, (x0 + 0.03, y0 + 0.0015, z + 0.06), (x1 - 0.03, y0 + 0.004, z + 0.094), {"-y": atlas.uv(atlas.carton_label(design))})
         return
     cx = (x0 + x1) / 2
     lid = (x1 - x0 - 0.008, y1 - y0 - 0.008, 0.045)
@@ -236,6 +278,7 @@ def door_half(hinge, side: int):
         return lo, hi
 
     frame, goods, eggs = MeshBuilder(), MeshBuilder(), MeshBuilder()
+    labels = MeshBuilder(recalc_normals=False)
     bx0, bx1 = span(0.0, width)
     # Back panel, outer side panel, canopy with a warm light strip, recessed kick plate.
     frame.box((bx0, SHELF_DEPTH - 0.03, 0.12), (bx1, SHELF_DEPTH, h - 0.06), M["shelf"])
@@ -255,16 +298,19 @@ def door_half(hinge, side: int):
         frame.box((bx0, 0.0, z), (bx1, SHELF_DEPTH - 0.03, z + 0.025), M["shelf"])
         frame.box((bx0, -0.012, z - 0.035), (bx1, 0.012, z + 0.03), props.M["rail"])
         for i in range(5):
-            tx0, tx1 = span(0.12 + i * 0.28, 0.2 + i * 0.28)
-            frame.box((tx0, -0.016, z - 0.03), (tx1, -0.012, z + 0.02), props.M["tag"])
+            # Shelf-edge label under each stack: a printed cell of rail with one label.
+            tx0, tx1 = span(0.081 + i * 0.28, 0.319 + i * 0.28)
+            pick = (level * 3 + i + (side > 0)) % 4
+            props.pack_box(labels, (tx0, -0.0135, z - 0.035), (tx1, 0.0, z + 0.03), {"-y": atlas.uv(atlas.rail(pick))})
         for i in range(5):
             cx0, cx1 = span(0.08 + i * 0.28, 0.08 + i * 0.28 + 0.24)
-            mat = M["carton"] if (i + level) % 2 == 0 else M["carton_alt"]
+            alt = (i + level) % 2
+            mat = M["carton_alt"] if alt else M["carton"]
             # Eye-level shelf: two open cartons per door show the eggs.
             is_open = level == 2 and i in (1, 3)
-            carton(goods, cx0, cx1, 0.05, 0.33, z + 0.025, mat, eggs if is_open else None)
+            carton(goods, cx0, cx1, 0.05, 0.33, z + 0.025, mat, eggs if is_open else None, labels, alt)
             if not is_open:
-                carton(goods, cx0, cx1, 0.05, 0.33, z + 0.025 + 0.12, mat, None)
+                carton(goods, cx0, cx1, 0.05, 0.33, z + 0.025 + 0.12, mat, None, labels, alt)
 
     door = bevel(frame.build(f"DOOR_EGGS_{name}", parent=hinge), 0.006)
     # Large faces whose four corners touch the canopy and kick plate: per-vertex occlusion would
@@ -272,6 +318,10 @@ def door_half(hinge, side: int):
     door["ao_skip"] = True
     bevel(goods.build(f"DOOR_EGGS_{name}_GOODS", parent=door), 0.003)
     eggs.build(f"DOOR_EGGS_{name}_EGGS", parent=door)
+    # Flush printed faces: authored UVs, no baked occlusion (they would take the shelf's shadow).
+    prints = labels.build(f"DOOR_EGGS_{name}_LABELS", parent=door)
+    prints["uv_authored"] = True
+    prints["ao_skip"] = True
     collider = MeshBuilder().box((bx0, 0.0, 0.0), (bx1, SHELF_DEPTH, h)).build(f"COL_DOOR_EGGS_{name}", parent=door)
     helper_volume(collider)
     return door
@@ -324,9 +374,11 @@ def parvis(root) -> None:
         helper_volume(box(f"COL_PARVIS_{key}", (x0, y0, 0.0), (x1, y1, 1.2), None, plaza))
     outside.planter_greenery([(x0, y0, x1, y1) for (x0, y0), (x1, y1) in edges.values()], plaza)
 
-    trees = MeshBuilder()
-    for k, (x, y) in enumerate(((-13.7, -14.0), (-13.7, -22.0), (13.7, -14.0), (13.7, -22.0), (-6.0, -29.7), (6.0, -29.7))):
-        land.tree(trees, x, y, 0.5, "round", 900 + k)
+    # Open, faceted canopies with a baked tint: windings are kept as built.
+    trees = MeshBuilder(recalc_normals=False)
+    tree_spots = ((-13.7, -14.0), (-13.7, -22.0), (13.7, -14.0), (13.7, -22.0), (-6.0, -29.7), (6.0, -29.7))
+    for k, (x, y) in enumerate(tree_spots):
+        outside.tree(trees, x, y, 0.5, 900 + k)
     trees.build("PARVIS_TREES", parent=plaza)
 
     outside.street_furniture(plaza)
@@ -342,6 +394,21 @@ def parvis(root) -> None:
     outside.volunteer("VOLUNTEER_04", 3.9, banner_y, 0.0, 3, plaza, pose="banner", pole_x=0.25)
     outside.volunteer("VOLUNTEER_05", 8.1, banner_y, 0.0, 4, plaza, pose="banner", pole_x=-0.25)
     outside.banner("BANNER_PARVIS", 3.9 + 0.25, 8.1 - 0.25, banner_y + 0.3, 0.95, 2.2, plaza)
+
+    # Car park, street, buildings and tree line beyond the planters; then the soft contact
+    # shadows of everything that stands on the ground (x, y, z, radii, turn, strength).
+    shadows = outside.context(plaza, -0.62)
+    ground = 0.009  # just above the paving joints
+    people = ((-3.6, -13.0), (3.9, -14.5), (-6.0, -19.4), (3.9, banner_y), (8.1, banner_y))
+    shadows += [(x + 0.05, y - 0.03, ground, 0.4, 0.33, -0.55, 0.55) for x, y in people]
+    shadows += [(x, -24.0, ground, 0.46, 0.46, 0.0, 0.6) for x in (-2.8, 2.8)]  # bins
+    shadows += [(x, y, ground, 0.46, 1.1, 0.0, 0.5) for x in (-10.5, 10.5) for y in (-15.0, -23.0)]  # benches
+    shadows += [(-6.0, -20.6, ground, 1.95, 0.72, 0.0, 0.5), (-8.0, -20.35, ground, 0.5, 0.3, 0.0, 0.5)]  # stand, roll-up
+    shadows += [(x, banner_y + 0.32, ground, 0.13, 0.13, 0.0, 0.4) for x in (4.15, 7.85)]  # banner poles
+    shadows += [(x, -HALF_Y - WALL - 2.75, ground, 0.24, 0.24, 0.0, 0.5) for x in (-3.35, 3.35)]  # canopy columns
+    shadows += [(7.8, -10.57, ground, 2.3, 0.3, 0.0, 0.4)]  # bike hoops
+    shadows += [(x, y, 0.538, 0.25, 0.25, 0.0, 0.55) for x, y in tree_spots]  # trees, on the planters' soil
+    outside.contact_shadows("PARVIS_CONTACT_SHADOWS", shadows, plaza)
 
     # Walking past the volunteers opens the end menu.
     helper_volume(box("TRIGGER_PARVIS", (-10.0, -18.0, 0.0), (10.0, -16.0, 2.4), None, plaza))

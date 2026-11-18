@@ -1,9 +1,41 @@
-import { Box3, Euler, type Object3D, Quaternion, type Scene, Vector3 } from "three";
+import {
+  Box3,
+  Euler,
+  Mesh,
+  MeshStandardMaterial,
+  type Object3D,
+  Quaternion,
+  type Scene,
+  Vector3,
+} from "three";
 import type { AssetManager } from "../core/AssetManager";
 import { STORE_CONTRACT, shelfNodes } from "../core/assetContract";
 import type { ChainId } from "../core/chain";
 import { CHAINS } from "../data/chains";
 import { createLabel, createScanPictogram, createSignLabel } from "./labels";
+
+/**
+ * Printed cloth and paper (banner, leaflets) are two thin sheets back to back: the baked
+ * lightmap sees each one occluded by the other and turns the print grey. They do without it.
+ */
+const PRINTED_MATERIAL = /^M_(BANNER|LEAFLET)_L214$/;
+/**
+ * Case doors: an alpha-blended pane keeps its full specular reflection whatever its opacity, so
+ * the bright store panorama veils the goods behind it. The reflection is toned down instead.
+ */
+const CASE_GLASS: Readonly<Record<string, { opacity: number; reflection: number }>> = {
+  M_FRIDGE_GLASS: { opacity: 0.1, reflection: 0.3 },
+};
+
+/** Runtime corrections to exported materials; exported for tests. */
+export function tuneMaterial(material: MeshStandardMaterial): void {
+  if (PRINTED_MATERIAL.test(material.name)) material.aoMap = null;
+  const glass = CASE_GLASS[material.name];
+  if (glass) {
+    material.opacity = glass.opacity;
+    material.envMapIntensity = glass.reflection;
+  }
+}
 
 /** Eye height of the player above the floor, in metres. */
 export const EYE_HEIGHT = 1.6;
@@ -29,6 +61,14 @@ export class StoreWorld {
     // Aisle signs (hanging, two-sided) and the store sign carry a generic word in glTF
     // extras (no brand, no price); the text is drawn here.
     root.traverse((object) => {
+      if (object instanceof Mesh) {
+        const materials: unknown[] = Array.isArray(object.material)
+          ? object.material
+          : [object.material];
+        for (const material of materials) {
+          if (material instanceof MeshStandardMaterial) tuneMaterial(material);
+        }
+      }
       const label = object.userData.label;
       if (typeof label !== "string") return;
       if (/^AISLE_SIGN_\d+$/.test(object.name)) {

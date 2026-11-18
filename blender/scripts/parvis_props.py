@@ -12,9 +12,15 @@ from __future__ import annotations
 
 import math
 
-from common import MeshBuilder, bevel, box, glass, helper_volume, material
+import lowpoly as lp
+from common import AO_ATTRIBUTE, MeshBuilder, bevel, box, glass, helper_volume, material
 
 M: dict = {}
+
+# Brightest foliage and bark shades: every tint is at most 1 times these (see lowpoly.py).
+FOLIAGE_BASE = "#B4C790"
+BARK_BASE = "#8A7660"
+CANOPIES = ("#7F9468", "#8A9B6A", "#75895F")
 
 
 def materials() -> None:
@@ -55,9 +61,19 @@ def materials() -> None:
     # bound to these materials by name in scripts/lib/surfaces.mjs.
     M["leaflet_print"] = material("M_LEAFLET_L214", "#FFFFFF", roughness=0.7)
     M["banner_print"] = material("M_BANNER_L214", "#FFFFFF", roughness=0.85)
-    M["banner_back"] = material("M_BANNER_BACK", "#E9E4D6", roughness=0.9)
     M["pole"] = material("M_BANNER_POLE", "#B9B5AB", roughness=0.5, metallic=0.4)
     M["tote"] = material("M_TOTE_BAG", "#E8E0CF", roughness=0.9)
+    # Forecourt trees: faceted canopy in one foliage material (the `M_FOLIAGE_` prefix gives it
+    # the runtime's wind sway), colour variation baked per face corner (lowpoly.TINT).
+    M["foliage"] = material("M_FOLIAGE_PARVIS", FOLIAGE_BASE, roughness=0.95)
+    M["trunk"] = material("M_PARVIS_TRUNK", BARK_BASE, roughness=0.95)
+    # Everything beyond the planters (cars, markings, lamp posts, buildings, tree line) is one
+    # white material tinted per face corner: one draw call for the whole backdrop.
+    M["context"] = material("M_PARVIS_CONTEXT", "#FFFFFF", roughness=0.85)
+    M["asphalt"] = material("M_PARKING_ASPHALT", "#7B7C7D", roughness=0.92)
+    # Soft contact shadows: black, blended, opacity carried by the vertex colour's alpha.
+    M["contact"] = glass("M_CONTACT_SHADOW", "#000000", alpha=0.98)
+    M["contact"].node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 1.0
 
 
 # --- facade -----------------------------------------------------------------------------------
@@ -189,6 +205,7 @@ def street_furniture(root) -> None:
 def planter_greenery(planters: list[tuple[float, float, float, float]], root) -> None:
     """Soil and low shrubs inside the existing planters."""
     g = MeshBuilder()
+    shrubs = MeshBuilder(recalc_normals=False)
     for k, (x0, y0, x1, y1) in enumerate(planters):
         g.box((x0 + 0.05, y0 + 0.05, 0.5), (x1 - 0.05, y1 - 0.05, 0.53), M["soil"])
         along_y = (y1 - y0) > (x1 - x0)
@@ -199,8 +216,21 @@ def planter_greenery(planters: list[tuple[float, float, float, float]], root) ->
             cx = (x0 + x1) / 2 if along_y else x0 + (x1 - x0) * t
             cy = y0 + (y1 - y0) * t if along_y else (y0 + y1) / 2
             r = 0.38 + 0.08 * ((i * 7 + k) % 3)
-            g.ellipsoid((cx, cy, 0.62), (r, r, r * 0.8), M["shrub"], u=7, v=5)
+            seed = 9000 + k * 97 + i
+            colour = lp.rel(CANOPIES[lp.hash32(seed, 2) % len(CANOPIES)], FOLIAGE_BASE)
+            wind = lp.rand(seed, 43)
+
+            def shade(nz: float, facet: int, colour=colour, seed=seed):
+                light = 0.6 + 0.4 * _clamp01((nz + 0.35) / 1.2)
+                return lp.scale(colour, light * (0.93 + 0.12 * lp.rand(seed, facet, 71)))
+
+            def sway(p, wind=wind):
+                return (wind, _clamp01((p.z - 0.5) / 0.6), 0.0)
+
+            # Same crisp faceted clumps as the trees (tint baked per facet, no normal map).
+            lp.blob(shrubs, (cx, cy, 0.66), (r * 1.1, r * 1.1, r * 0.85), M["foliage"], shade, seed, subdivisions=1, lumps=0.25, drop_below=-0.5, phase=sway)
     g.build("PARVIS_GREENERY", parent=root)
+    shrubs.build("PARVIS_SHRUBS", parent=root)
 
 
 def stand(x0: float, y0: float, x1: float, y1: float, root) -> None:
@@ -251,6 +281,9 @@ class Figure:
         # Narrower shoulders and wider hips for two of the variants, so the bodies differ too.
         self.shoulders = 0.92 if self.v in (1, 3) else 1.0
         self.hips = 1.06 if self.v in (1, 3) else 1.0
+        # Standing weight on one leg: the pelvis slides over it and the chest comes back the
+        # other way (set by volunteer()), which breaks the mannequin's symmetry.
+        self.sway = 0.0
 
     def p(self, x: float, y: float, z: float) -> tuple[float, float, float]:
         return (x * self.k, y * self.k, z * self.k)
@@ -272,58 +305,69 @@ def _lerp(a, b, t: float):
 def _legs(f: Figure, shift: float) -> None:
     """Hips, both legs, trouser cuffs and shoes. `shift` puts the weight on the right leg."""
     h = f.hips
+    w = f.sway
     # The seat and crotch in trouser cloth, so the legs join the body with no gap.
     f.loft(
-        [((0.0, 0.0, 0.7), 0.045 * h, 0.06), ((0.0, 0.0, 0.78), 0.11 * h, 0.09), ((0.0, 0.0, 0.86), 0.158 * h, 0.098), ((0.0, -0.004, 0.935), 0.158 * h, 0.092)],
+        [((w * 0.4, 0.0, 0.7), 0.05 * h, 0.064), ((w * 0.7, 0.0, 0.78), 0.118 * h, 0.094), ((w, 0.0, 0.86), 0.164 * h, 0.102), ((w, -0.004, 0.935), 0.16 * h, 0.094)],
         f.legs,
         segments=12,
     )
     for side in (-1, 1):
-        x = 0.088 * side
-        ky = 0.04 * shift * (1 if side < 0 else -0.35)  # the relaxed leg bends forward
+        x = 0.1 * side
+        relaxed = (side < 0) == (shift > 0)  # the leg that does not carry the weight
+        ky = 0.05 if relaxed else -0.012  # its knee comes forward
+        out = 0.022 * side if relaxed else 0.0  # and its foot stands a little wider
         f.loft(
             [
-                ((x * 0.97, 0.0, 0.93), 0.08, 0.092),
-                ((x * 1.04, 0.004, 0.8), 0.088, 0.095),
-                ((x * 1.08, ky * 0.6, 0.63), 0.072, 0.078),
-                ((x * 1.1, ky, 0.5), 0.062, 0.066),
-                ((x * 1.09, ky * 0.4 - 0.012, 0.36), 0.058, 0.062),
-                ((x * 1.06, 0.0, 0.2), 0.043, 0.046),
-                ((x * 1.05, 0.0, 0.12), 0.046, 0.05),
-                ((x * 1.05, 0.0, 0.085), 0.049, 0.053),
+                # The legs start under the hem of the top: nothing pokes through it.
+                ((x * 0.94 + w, 0.0, 0.842), 0.08, 0.092),
+                ((x * 1.0 + w, 0.004, 0.77), 0.09, 0.098),
+                ((x * 1.03 + w * 0.6 + out * 0.4, ky * 0.6, 0.63), 0.075, 0.081),
+                ((x * 1.04 + w * 0.4 + out * 0.6, ky, 0.5), 0.063, 0.068),
+                ((x * 1.04 + out * 0.8, ky * 0.4 - 0.014, 0.36), 0.061, 0.067),
+                ((x * 1.03 + out, 0.0, 0.2), 0.045, 0.048),
+                ((x * 1.03 + out, 0.0, 0.12), 0.048, 0.052),
+                ((x * 1.03 + out, 0.0, 0.085), 0.051, 0.055),
             ],
             f.legs,
             segments=10,
         )
-        # Shoe: a rounded last lofted heel to toe, on a pale sole.
-        sx = x * 1.05
+        # Shoe: a rounded last lofted heel to toe, on a pale sole; toes turned out a little.
+        sx = x * 1.03 + out
+        toe = 0.03 * side
         f.loft(
             [
                 ((sx, -0.068, 0.05), 0.042, 0.042),
-                ((sx, -0.0, 0.043), 0.049, 0.04),
-                ((sx, 0.08, 0.036), 0.053, 0.033),
-                ((sx, 0.15, 0.028), 0.042, 0.024),
-                ((sx, 0.177, 0.022), 0.02, 0.016),
+                ((sx + toe * 0.2, -0.0, 0.043), 0.049, 0.04),
+                ((sx + toe * 0.55, 0.08, 0.036), 0.053, 0.033),
+                ((sx + toe * 0.9, 0.15, 0.028), 0.042, 0.024),
+                ((sx + toe, 0.177, 0.022), 0.02, 0.016),
             ],
             M["shoes"],
             segments=10,
         )
-        f.b.box(f.p(sx - 0.05, -0.07, 0.0), f.p(sx + 0.05, 0.17, 0.014), M["sole"])
+        f.b.oriented_box(f.p(sx + toe * 0.45, 0.05, 0.007), (f.r(0.1), f.r(0.24), f.r(0.014)), M["sole"], rot_z=-math.atan2(toe, 0.245))
 
 
 def _torso(f: Figure) -> None:
     s = f.shoulders
+    w = f.sway
+    # The hem hangs over the top of the trousers; waist, rib cage and shoulders follow, the chest
+    # a little forward of the hips as in a relaxed stance.
     f.loft(
         [
-            ((0.0, -0.004, 0.88), 0.18 * f.hips, 0.108),
-            ((0.0, -0.004, 1.0), 0.168 * f.hips, 0.1),
-            ((0.0, 0.0, 1.1), 0.15, 0.094),
-            ((0.0, 0.0, 1.22), 0.163, 0.104),
-            ((0.0, 0.008, 1.34), 0.185 * s, 0.112),
-            ((0.0, 0.004, 1.42), 0.2 * s, 0.104),
-            ((0.0, 0.0, 1.465), 0.165 * s, 0.088),
-            ((0.0, 0.004, 1.49), 0.078, 0.066),
-            ((0.0, 0.008, 1.515), 0.053, 0.052),
+            ((w, -0.006, 0.835), 0.186 * f.hips, 0.118),
+            ((w, -0.006, 0.9), 0.182 * f.hips, 0.116),
+            ((w * 0.8, -0.004, 1.0), 0.17 * f.hips, 0.108),
+            ((w * 0.4, 0.0, 1.1), 0.154, 0.1),
+            ((0.0, 0.006, 1.22), 0.17, 0.112),
+            ((-w * 0.3, 0.014, 1.34), 0.192 * s, 0.122),
+            # Square shoulders that enclose the arm joints, then a short slope to the neck.
+            ((-w * 0.3, 0.008, 1.42), 0.222 * s, 0.108),
+            ((-w * 0.3, 0.004, 1.462), 0.212 * s, 0.096),
+            ((-w * 0.2, 0.004, 1.488), 0.13 * s, 0.078),
+            ((0.0, 0.006, 1.503), 0.07, 0.064),
+            ((0.0, 0.008, 1.518), 0.054, 0.053),
         ],
         f.top,
         segments=14,
@@ -388,9 +432,14 @@ def _head(f: Figure) -> None:
             f.blob((dx, dy, 1.73 + dz), (0.038, 0.04, 0.036), f.hair, 6, 4)
 
 
-def _elbow(side: int, wrist, drop: float = 0.13, out: float = 0.05):
+def _shoulder(f: Figure, side: int):
+    """Shoulder joint, on the torso's own width (narrower figures keep their arms attached)."""
+    return (0.2 * f.shoulders * side - f.sway * 0.3, 0.004, 1.418)
+
+
+def _elbow(f: Figure, side: int, wrist, drop: float = 0.13, out: float = 0.05):
     """A natural elbow for a hand at `wrist`: midway, dropped and a little outwards."""
-    shoulder = (0.2 * side, 0.0, 1.42)
+    shoulder = _shoulder(f, side)
     return (
         (shoulder[0] + wrist[0]) / 2 + side * out,
         (shoulder[1] + wrist[1]) / 2 - 0.02,
@@ -400,12 +449,12 @@ def _elbow(side: int, wrist, drop: float = 0.13, out: float = 0.05):
 
 def _arm(f: Figure, side: int, elbow, wrist, hand: str = "open") -> None:
     """One arm: sleeve from the shoulder through `elbow` to a cuff near `wrist`, then wrist and hand."""
-    shoulder = (0.2 * side, 0.0, 1.42)
+    shoulder = _shoulder(f, side)
     cuff = _lerp(elbow, wrist, 0.86)
-    f.blob(shoulder, (0.058, 0.058, 0.06), f.top, 8, 5)  # rounds the shoulder
+    f.blob(shoulder, (0.058, 0.06, 0.066), f.top, 8, 5)  # rounds the shoulder
     f.loft(
         [
-            (shoulder, 0.056, 0.058),
+            (shoulder, 0.054, 0.058),
             (_lerp(shoulder, elbow, 0.45), 0.049, 0.051),
             (_lerp(shoulder, elbow, 0.92), 0.04, 0.042),
             (elbow, 0.04, 0.041),
@@ -441,7 +490,9 @@ def volunteer(name: str, x: float, y: float, facing: float, variant: int, root, 
     for variant 0) and "banner" (both hands on a banner pole held at `pole_x`, in front of them).
     """
     f = Figure(variant)
-    _legs(f, shift=1.0 if variant % 2 == 0 else -1.0)
+    shift = 1.0 if variant % 2 == 0 else -1.0
+    f.sway = 0.016 * shift
+    _legs(f, shift)
     _torso(f)
     _head(f)
     prints = MeshBuilder(recalc_normals=False)
@@ -450,8 +501,8 @@ def volunteer(name: str, x: float, y: float, facing: float, variant: int, root, 
         # grips high, the other low and across the body.
         high, low = (pole_x, 0.3, 1.38), (pole_x, 0.3, 1.06)
         near = -1 if pole_x < 0 else 1
-        _arm(f, near, _elbow(near, high), high, hand="fist")
-        _arm(f, -near, _elbow(-near, low, drop=0.1), low, hand="fist")
+        _arm(f, near, _elbow(f, near, high), high, hand="fist")
+        _arm(f, -near, _elbow(f, -near, low, drop=0.1), low, hand="fist")
     else:
         _arm(f, -1, (-0.25, 0.01, 1.17), (-0.23, 0.04, 0.92))
         _arm(f, 1, (0.26, 0.07, 1.2), (0.22, 0.28, 1.2))
@@ -482,7 +533,9 @@ def volunteer(name: str, x: float, y: float, facing: float, variant: int, root, 
 def banner(name: str, x0: float, x1: float, y: float, z0: float, z1: float, root) -> None:
     """Printed cloth between two poles, facing +Y (towards the store), hung with a slight sag.
 
-    The front carries the print (M_BANNER_L214), the back is plain; two poles reach above the top
+    Both sides carry the print (M_BANNER_L214): each side is its own surface, mapped by the export
+    so that it reads the right way round from where it is seen (surfaces.py, project_brand_uvs),
+    never mirrored. A hem runs along the top and bottom edges; two poles reach above the top
     edge. Positions are world Blender coordinates; the poles stand at x0 and x1."""
     cloth = MeshBuilder(recalc_normals=False)
     back = MeshBuilder(recalc_normals=False)
@@ -499,7 +552,7 @@ def banner(name: str, x0: float, x1: float, y: float, z0: float, z1: float, root
         return [[builder.bm.verts.new((x0 + width * i / cols, y + sag(i) + dy, z0 + height * j / rows)) for j in range(rows + 1)] for i in range(cols + 1)]
 
     front, rear = vertices(cloth, 0.0), vertices(back, -0.004)
-    for builder, grid, mat, look in ((cloth, front, M["banner_print"], 1.0), (back, rear, M["banner_back"], -1.0)):
+    for builder, grid, mat, look in ((cloth, front, M["banner_print"], 1.0), (back, rear, M["banner_print"], -1.0)):
         slot = builder._slot(mat)
         for i in range(cols):
             for j in range(rows):
@@ -514,5 +567,310 @@ def banner(name: str, x0: float, x1: float, y: float, z0: float, z1: float, root
     for px in (x0, x1):
         poles.limb((px, y + 0.02, 0.0), (px, y + 0.02, z1 + 0.25), 0.02, 0.016, M["pole"], segments=8)
     poles.limb((x0, y + 0.02, z1 + 0.05), (x1, y + 0.02, z1 + 0.05), 0.012, 0.012, M["pole"], segments=6)
+    # Hems: a stitched fold along the top and bottom edges, following the sag of the cloth.
+    for zz in (z0, z1):
+        for i in range(0, cols, 2):
+            a, c = x0 + width * i / cols, x0 + width * (i + 2) / cols
+            ya = y + min(sag(i), sag(i + 2)) - 0.007
+            yb = y + max(sag(i), sag(i + 2)) + 0.003
+            poles.box((a, ya, zz - 0.012), (c, yb, zz + 0.012), M["tote"])
     poles.build(f"{name}_POLES", parent=root)["ao_skip"] = True
     helper_volume(box(f"COL_{name}", (x0, y - 0.15, 0.0), (x1, y + 0.2, z1), None, root))
+
+
+# --- trees ------------------------------------------------------------------------------------
+
+def _clamp01(v: float) -> float:
+    return min(1.0, max(0.0, v))
+
+
+def tree(b: MeshBuilder, x: float, y: float, z: float, seed: int, size: float = 1.0) -> None:
+    """Stylised forecourt tree, seen from a few metres: a tapered trunk that forks into three
+    visible limbs, and a canopy of crisp faceted clumps in two tiers, lighter on top and darker
+    underneath (baked tint, no normal map). `b` must not recalculate normals: the clumps are open
+    underneath."""
+    s = size * (0.9 + 0.25 * lp.rand(seed, 1))
+    colour = lp.rel(CANOPIES[lp.hash32(seed, 2) % len(CANOPIES)], FOLIAGE_BASE)
+    bark = lp.scale(lp.WHITE, 0.82 + 0.18 * lp.rand(seed, 47))
+    height = 6.6 * s
+    wind = lp.rand(seed, 43)
+    turn = 2 * math.pi * lp.rand(seed, 53)
+
+    def sway(p):
+        return (wind, _clamp01((p.z - z) / height), 0.0)
+
+    def shade(nz: float, k: int):
+        # Facets that look up catch the sky; those underneath sit in the canopy's own shadow.
+        light = 0.58 + 0.42 * _clamp01((nz + 0.35) / 1.2)
+        return lp.scale(colour, light * (0.93 + 0.12 * lp.rand(seed, k, 71)))
+
+    fork = z + 2.5 * s
+    rings = [
+        lp.ring((x, y, z - 0.1), 0.3 * s, 0.3 * s, 6, turn),
+        lp.ring((x, y, z + 0.5 * s), 0.19 * s, 0.19 * s, 6, turn),
+        lp.ring((x + 0.05 * s, y, fork), 0.15 * s, 0.15 * s, 6, turn),
+    ]
+    lp.loft(b, rings, M["trunk"], ring_tints=[lp.scale(bark, 0.7), bark, lp.scale(bark, 0.9)])
+    # (dx, dy, dz, radius, vertical radius): a crown and three lower clumps around it.
+    clumps = ((0.0, 0.0, 5.0, 1.75, 1.45), (1.3, 0.35, 4.1, 1.3, 1.0), (-0.95, 0.85, 4.25, 1.25, 0.95), (-0.35, -1.25, 4.15, 1.3, 1.0))
+    for k, (dx, dy, dz, r, rz) in enumerate(clumps):
+        jx, jy = 0.3 * (lp.rand(seed, 10 + k) - 0.5), 0.3 * (lp.rand(seed, 20 + k) - 0.5)
+        cx, cy, cz = x + (dx + jx) * s, y + (dy + jy) * s, z + dz * s
+        if k:  # a limb from the fork into the clump
+            lp.tube(b, (x + 0.05 * s, y, fork - 0.1 * s), (cx, cy, cz - 0.25 * s), 0.07 * s, M["trunk"], tint=lp.scale(bark, 0.85), sides=5)
+        else:
+            lp.tube(b, (x + 0.05 * s, y, fork - 0.1 * s), (cx, cy, cz - 0.4 * s), 0.1 * s, M["trunk"], tint=lp.scale(bark, 0.9), sides=5)
+        lp.blob(b, (cx, cy, cz), (r * s, r * s, rz * s), M["foliage"], shade, seed + k * 131, subdivisions=2, lumps=0.2, drop_below=-0.55, phase=sway)
+
+
+# --- beyond the planters: car park, street, buildings, tree line ------------------------------------
+# Generic surroundings so the horizon is not an empty lawn. Everything fits on the plateau the
+# terrace modules model behind the store (x within ±40, y down to -80). All of it is one mesh in
+# one white material, coloured per face corner (lowpoly.TINT → COLOR_0 at export), except the
+# asphalt, which takes the tileable road texture.
+
+CAR_PARK = (-24.0, -54.0, 24.0, -33.0)
+STREET = (-40.0, -64.0, 40.0, -57.0)
+LANES = ((-21.0, -57.0, -15.0, -54.0), (15.0, -57.0, 21.0, -54.0))
+BAY = 2.6
+CAR_COLOURS = ("#C9CDD0", "#3E4A57", "#9C4A3C", "#E9E6DF", "#5B6B5C", "#2F3133", "#B8A27A", "#7A8794")
+
+
+def _car(c: MeshBuilder, x: float, y: float, z: float, nose: int, colour: str, mat) -> None:
+    """Simple parked car, 4.2 m long along Y, its nose towards `nose` (±Y): one extruded profile,
+    dark glazing, four wheels."""
+    body = lp.lin(colour)
+    low = lp.scale(body, 0.72)
+    glass_tint = lp.lin("#2B3238")
+    half = 0.86
+    # Side profile: (along the car, height), nose first, counter-clockwise seen from the left.
+    profile = ((2.08, 0.3), (2.1, 0.62), (1.5, 0.84), (0.72, 1.36), (-0.95, 1.4), (-1.72, 0.96), (-2.08, 0.9), (-2.1, 0.3))
+    n = len(profile)
+    coords, tints = [], []
+    for side in (-1, 1):
+        for along, up in profile:
+            inset = 0.1 if up > 1.0 else 0.0  # the cabin narrows towards the roof
+            coords.append((x + side * (half - inset), y + nose * along, z + up))
+            tints.append(low if up < 0.5 else body)
+    faces = []
+    for k in range(n):
+        a, d = k, (k + 1) % n
+        quad = (a, d, n + d, n + a)
+        faces.append(quad if nose > 0 else tuple(reversed(quad)))
+    left, right = tuple(range(n)), tuple(range(n, 2 * n))
+    faces.append(tuple(reversed(left)) if nose > 0 else left)
+    faces.append(right if nose > 0 else tuple(reversed(right)))
+    # Each face takes the tint of its first corner blended down the body: per-point tints.
+    lp.add(c, coords, faces, mat, vert_tint=tints)
+
+    def pane(points) -> None:
+        lp.add(c, [(x + px, y + nose * py, z + pz) for px, py, pz in points], [(0, 1, 2, 3) if nose > 0 else (3, 2, 1, 0)], mat, tint=glass_tint)
+
+    w = half - 0.14
+    pane(((w, 1.42, 0.93), (-w, 1.42, 0.93), (-w + 0.06, 0.8, 1.345), (w - 0.06, 0.8, 1.345)))  # windscreen
+    pane(((-w, -1.66, 1.03), (w, -1.66, 1.03), (w - 0.06, -1.03, 1.385), (-w + 0.06, -1.03, 1.385)))  # rear window
+    for side in (-1, 1):
+        sx = side * (half + 0.015)
+        points = ((sx, 1.3, 0.94), (sx, -1.5, 1.0), (side * (half - 0.07), -0.95, 1.34), (side * (half - 0.07), 0.7, 1.31))
+        lp.add(c, [(x + px, y + nose * py, z + pz) for px, py, pz in points], [(0, 1, 2, 3) if side * nose < 0 else (3, 2, 1, 0)], mat, tint=glass_tint)
+    tyre, hub = lp.lin("#26282A"), lp.lin("#8E9194")
+    for side in (-1, 1):
+        for along in (1.32, -1.3):
+            wx, wy, wz, r = x + side * (half - 0.11), y + nose * along, z + 0.31, 0.31
+            ring_in = [(wx - side * 0.1, wy + r * math.cos(a), wz + r * math.sin(a)) for a in (2 * math.pi * k / 8 for k in range(8))]
+            ring_out = [(wx + side * 0.1, wy + r * math.cos(a), wz + r * math.sin(a)) for a in (2 * math.pi * k / 8 for k in range(8))]
+            quads = [(k, (k + 1) % 8, 8 + (k + 1) % 8, 8 + k) for k in range(8)]
+            disc = tuple(range(8)) if side > 0 else tuple(reversed(range(8)))
+            if side < 0:
+                quads = [tuple(reversed(q)) for q in quads]
+            lp.add(c, ring_in + ring_out, quads, mat, tint=tyre)
+            lp.add(c, ring_out, [disc], mat, tint=tyre)
+            hub_ring = [(wx + side * 0.104, wy + 0.17 * math.cos(a), wz + 0.17 * math.sin(a)) for a in (2 * math.pi * k / 8 for k in range(8))]
+            lp.add(c, hub_ring, [disc], mat, tint=hub)
+
+
+def _lamp(c: MeshBuilder, x: float, y: float, z: float, reach: tuple[float, float], mat) -> None:
+    """Street lamp: slim pole, short arm towards `reach` (dx, dy), flat head."""
+    steel, head = lp.lin("#5E6468"), lp.lin("#D9DBD8")
+    top = z + 6.2
+    lp.tube(c, (x, y, z), (x, y, top), 0.07, mat, tint=steel, sides=6)
+    ex, ey = x + reach[0], y + reach[1]
+    lp.tube(c, (x, y, top - 0.05), (ex, ey, top + 0.1), 0.04, mat, tint=steel, sides=4)
+    lp.box_faces(c, (ex - 0.3, ey - 0.16, top + 0.04), (ex + 0.3, ey + 0.16, top + 0.14), mat, tint=steel, skip=("-z",))
+    lp.quad(c, ((ex - 0.26, ey + 0.12, top + 0.038), (ex + 0.26, ey + 0.12, top + 0.038), (ex + 0.26, ey - 0.12, top + 0.038), (ex - 0.26, ey - 0.12, top + 0.038)), mat, tint=head)
+
+
+def _far_tree(c: MeshBuilder, x: float, y: float, z: float, seed: int, size: float, mat, near: bool) -> None:
+    """Background tree, tinted like the forecourt's own: a trunk and coarse clumps on the
+    horizon, a tapered trunk and finer clumps for those `near` enough to be read (20 m)."""
+    s = size * (0.85 + 0.35 * lp.rand(seed, 3))
+    colour = lp.lin(CANOPIES[lp.hash32(seed, 5) % len(CANOPIES)])
+
+    def shade(nz: float, k: int):
+        return lp.scale(colour, (0.6 + 0.4 * _clamp01((nz + 0.35) / 1.2)) * (0.92 + 0.14 * lp.rand(seed, k, 9)))
+
+    bark = lp.lin("#6E5D4A")
+    jx, jy = 0.8 * (lp.rand(seed, 11) - 0.5), 0.8 * (lp.rand(seed, 13) - 0.5)
+    if not near:
+        lp.tube(c, (x, y, z - 0.1), (x, y, z + 3.2 * s), 0.16 * s, mat, tint=bark, sides=4)
+        lp.blob(c, (x, y, z + 5.0 * s), (2.1 * s, 2.1 * s, 1.8 * s), mat, shade, seed, subdivisions=1, lumps=0.14, drop_below=-0.6)
+        lp.blob(c, (x + (1.1 + jx) * s, y + jy * s, z + 3.9 * s), (1.5 * s, 1.5 * s, 1.2 * s), mat, shade, seed + 17, subdivisions=1, lumps=0.14, drop_below=-0.6)
+        return
+    turn = 2 * math.pi * lp.rand(seed, 15)
+    rings = [lp.ring((x, y, z - 0.1), 0.26 * s, 0.26 * s, 5, turn), lp.ring((x, y, z + 0.6 * s), 0.17 * s, 0.17 * s, 5, turn), lp.ring((x, y, z + 3.4 * s), 0.11 * s, 0.11 * s, 5, turn)]
+    lp.loft(c, rings, mat, ring_tints=[lp.scale(bark, 0.7), bark, bark])
+    lp.blob(c, (x, y, z + 5.0 * s), (2.0 * s, 2.0 * s, 1.6 * s), mat, shade, seed, subdivisions=2, lumps=0.22, drop_below=-0.55)
+    lp.blob(c, (x + (1.2 + jx) * s, y + jy * s, z + 4.0 * s), (1.4 * s, 1.4 * s, 1.05 * s), mat, shade, seed + 17, subdivisions=2, lumps=0.22, drop_below=-0.55)
+    lp.blob(c, (x - (1.0 + jy) * s, y + (0.7 + jx) * s, z + 4.15 * s), (1.3 * s, 1.3 * s, 1.0 * s), mat, shade, seed + 29, subdivisions=1, lumps=0.16, drop_below=-0.55)
+
+
+def _building(c: MeshBuilder, x0: float, x1: float, y0: float, y1: float, z: float, height: float, wall: str, roof: str, pitched: bool, awning: str, mat) -> None:
+    """Low generic building facing the street (+Y): walls, roof, ribbon windows, a shopfront."""
+    base = lp.lin(wall)
+    top = z + height
+    lp.box_faces(c, (x0, y0, z), (x1, y1, top), mat, tint=base, skip=("-z", "+z", "+y"))
+    # Street front, darker towards the pavement.
+    lp.add(c, [(x1, y1, z), (x0, y1, z), (x0, y1, top), (x1, y1, top)], [(0, 1, 2, 3)], mat, vert_tint=[lp.scale(base, 0.8), lp.scale(base, 0.8), base, base])
+    rf = lp.lin(roof)
+    if pitched:
+        ridge, ym, e = top + 2.2, (y0 + y1) / 2, 0.4
+        pts = [(x0 - e, y0 - e, top), (x1 + e, y0 - e, top), (x1 + e, y1 + e, top), (x0 - e, y1 + e, top), (x0 - e, ym, ridge), (x1 + e, ym, ridge)]
+        lp.add(c, pts, [(4, 5, 2, 3), (5, 4, 0, 1), (4, 3, 0), (5, 1, 2)], mat, tint=[rf, lp.scale(rf, 0.8), lp.scale(base, 0.9), lp.scale(base, 0.9)])
+    else:
+        lp.box_faces(c, (x0 - 0.25, y0 - 0.25, top), (x1 + 0.25, y1 + 0.25, top + 0.35), mat, tint=rf, skip=("-z",))
+    glazing = lp.lin("#55626B")
+    face = y1 + 0.04
+    floors = int((height - 3.2) // 2.9)
+    for k in range(floors):
+        zb = z + 4.3 + k * 2.9
+        lp.quad(c, ((x1 - 1.0, face, zb), (x0 + 1.0, face, zb), (x0 + 1.0, face, zb + 1.35), (x1 - 1.0, face, zb + 1.35)), mat, tint=glazing)
+    lp.quad(c, ((x1 - 0.8, face, z + 0.5), (x0 + 0.8, face, z + 0.5), (x0 + 0.8, face, z + 2.7), (x1 - 0.8, face, z + 2.7)), mat, tint=lp.scale(glazing, 0.85))
+    lp.box_faces(c, (x0 + 0.5, y1, z + 2.8), (x1 - 0.5, y1 + 0.9, z + 3.0), mat, tint=lp.lin(awning), skip=("-y",))
+
+
+def context(root, ground_z: float) -> list[tuple]:
+    """Car park with painted bays and a few cars, a street with lamp posts, low buildings and a
+    tree line around the plateau. Returns contact shadows for contact_shadows() (cars, lamps)."""
+    z = ground_z + 0.05  # asphalt surface
+    paint = z + 0.012
+    mat = M["context"]
+    surfaces = MeshBuilder(recalc_normals=False)
+    for x0, y0, x1, y1 in (CAR_PARK, STREET, *LANES):
+        surfaces.box((x0, y0, ground_z - 0.05), (x1, y1, z), M["asphalt"], skip=("-z",))
+    surfaces.build("PARVIS_PARKING", parent=root)["ao_skip"] = True
+
+    c = MeshBuilder(recalc_normals=False)
+    shadows: list[tuple] = []
+    white, kerb, pavement = lp.lin("#E6E4DC"), lp.lin("#B9B4A8"), lp.lin("#BDB7AA")
+
+    def stripe(x0: float, y0: float, x1: float, y1: float) -> None:
+        lp.quad(c, ((x0, y0, paint), (x1, y0, paint), (x1, y1, paint), (x0, y1, paint)), mat, tint=white)
+
+    px0, py0, px1, py1 = CAR_PARK
+    # Two rows of bays, nose in: one against the north kerb, one across the aisle.
+    rows = ((py1 - 0.6, py1 - 5.6, 1), (py1 - 16.6, py1 - 11.6, -1))  # (head, tail, nose)
+    count = int((px1 - px0 - 3.0) // BAY)
+    first = -(count * BAY) / 2
+    for head, tail, _ in rows:
+        for k in range(count + 1):
+            lx = first + k * BAY
+            stripe(lx - 0.06, min(head, tail), lx + 0.06, max(head, tail))
+        stripe(first - 0.06, head - 0.06, first + count * BAY + 0.06, head + 0.06)
+    parked = ((0, 1, 0), (0, 2, 3), (0, 5, 1), (0, 8, 6), (0, 9, 4), (0, 12, 2), (0, 15, 7), (1, 0, 5), (1, 3, 0), (1, 6, 2), (1, 7, 3), (1, 11, 1), (1, 14, 6))
+    for row, bay, tone in parked:
+        head, tail, nose = rows[row]
+        cx = first + (bay + 0.5) * BAY + 0.12 * (lp.rand(row, bay, 3) - 0.5)
+        cy = (head + tail) / 2 + nose * 0.25 * lp.rand(row, bay, 5)
+        _car(c, cx, cy, z, nose, CAR_COLOURS[tone], mat)
+        shadows.append((cx, cy, z + 0.02, 1.2, 2.5, 0.0, 0.62))
+    # Kerbs around the car park (open at the two lanes) and along the street; pavement in front
+    # of the buildings.
+    k0, k1 = z - 0.02, z + 0.13
+    lp.box_faces(c, (px0 - 0.25, py1, k0), (px1 + 0.25, py1 + 0.25, k1), mat, tint=kerb)
+    for xa, xb in ((px0 - 0.25, px0), (px1, px1 + 0.25)):
+        lp.box_faces(c, (xa, py0, k0), (xb, py1, k1), mat, tint=kerb)
+    edges = [px0 - 0.25] + [v for lane in LANES for v in (lane[0], lane[2])] + [px1 + 0.25]
+    for xa, xb in zip(edges[0::2], edges[1::2]):
+        lp.box_faces(c, (xa, py0 - 0.25, k0), (xb, py0, k1), mat, tint=kerb)
+    sx0, sy0, sx1, sy1 = STREET
+    street_edges = [sx0] + [v for lane in LANES for v in (lane[0], lane[2])] + [sx1]
+    for xa, xb in zip(street_edges[0::2], street_edges[1::2]):
+        lp.box_faces(c, (xa, sy1, k0), (xb, sy1 + 0.25, k1), mat, tint=kerb)
+    lp.box_faces(c, (sx0, sy0 - 2.6, k0), (sx1, sy0, k1), mat, tint=pavement)
+    # Street markings: dashed centre line, solid edge lines.
+    ym = (sy0 + sy1) / 2
+    xd = sx0 + 1.0
+    while xd < sx1 - 3.0:
+        stripe(xd, ym - 0.06, xd + 3.0, ym + 0.06)
+        xd += 8.0
+    stripe(sx0, sy0 + 0.25, sx1, sy0 + 0.37)
+    # Lamp posts: four over the car park, four along the street.
+    for lx, ly, reach in ((-11.7, py1 + 0.12, (0.0, -1.3)), (11.7, py1 + 0.12, (0.0, -1.3)), (-11.7, py0 - 0.12, (0.0, 1.3)), (11.7, py0 - 0.12, (0.0, 1.3))):
+        _lamp(c, lx, ly, k1, reach, mat)
+        shadows.append((lx, ly, k1 + 0.01, 0.22, 0.22, 0.0, 0.45))
+    for lx in (-32.0, -8.0, 8.0, 32.0):
+        _lamp(c, lx, sy0 - 0.5, k1, (0.0, 1.5), mat)
+    # Low buildings across the street.
+    by0, by1 = sy0 - 14.5, sy0 - 2.6
+    blocks = (
+        (-40.0, -27.5, 6.6, "#D9CFBD", "#8D8A84", False, "#8FA889"),
+        (-26.0, -14.5, 9.6, "#C9BDA8", "#9A7460", True, "#B9694A"),
+        (-13.0, -3.0, 6.2, "#DDD6C8", "#8D8A84", False, "#C9B98F"),
+        (-1.5, 9.5, 8.6, "#C8B9A0", "#8A8580", False, "#8FA889"),
+        (11.0, 22.5, 9.8, "#D5CCBB", "#9A7460", True, "#7E8FA0"),
+        (24.0, 40.0, 6.4, "#CFC2AC", "#8D8A84", False, "#B9694A"),
+    )
+    for k, (xa, xb, hgt, wall, roof, pitched, awning) in enumerate(blocks):
+        _building(c, xa, xb, by0 + 1.2 * lp.rand(k, 31), by1, k1, hgt, wall, roof, pitched, awning, mat)
+    # Tree line: behind the buildings, down both sides of the plateau, beside the store, and a
+    # few in the lawns and along the street.
+    spots: list[tuple[float, float, float]] = []
+    xt = -39.0
+    while xt <= 39.0:
+        spots.append((xt, by0 - 1.1 - 0.4 * lp.rand(int(xt * 10), 7), 1.55))
+        xt += 5.2
+    horizon = len(spots)  # the row behind the buildings: only crowns show
+    for side in (-1, 1):
+        yt = -13.0
+        while yt > sy1 + 2.0:
+            spots.append((side * (37.0 + 1.6 * lp.rand(int(yt * 10), side + 3)), yt, 1.25))
+            yt -= 6.0
+        xt = 16.5
+        while xt < 36.0:
+            spots.append((side * xt, -10.8 - 0.8 * lp.rand(int(xt * 10), side + 5), 1.2))
+            xt += 5.6
+        spots += [(side * 19.5, -21.0, 1.0), (side * 28.0, -27.5, 1.1), (side * 30.5, -17.0, 0.95), (side * 29.5, -45.0, 1.05), (side * 7.5, sy1 + 1.4, 0.85), (side * 30.0, sy1 + 1.6, 0.9)]
+    for k, (tx, ty, size) in enumerate(spots):
+        _far_tree(c, tx, ty, ground_z + 0.08, 4000 + k, size, mat, near=k >= horizon)
+    c.build("PARVIS_CONTEXT", parent=root)
+    return shadows
+
+
+def contact_shadows(name: str, blobs: list[tuple], root) -> None:
+    """Soft dark discs under what stands on the forecourt (the store GLB takes no sun shadow at
+    runtime). One blended mesh; the opacity is the alpha of the exported vertex colour: full at
+    the centre of each disc, zero on its rim. A blob is (x, y, z, radius x, radius y, turn about
+    Z in radians, strength 0-1)."""
+    b = MeshBuilder(recalc_normals=False)
+    layer = b.bm.verts.layers.float_color.new(AO_ATTRIBUTE)
+    slot = b._slot(M["contact"])
+    n = 12
+    for x, y, z, rx, ry, turn, strength in blobs:
+        ca, sa = math.cos(turn), math.sin(turn)
+
+        def vert(scale: float, k: int, alpha: float):
+            a = 2 * math.pi * k / n
+            px, py = rx * scale * math.cos(a), ry * scale * math.sin(a)
+            v = b.bm.verts.new((x + px * ca - py * sa, y + px * sa + py * ca, z))
+            v[layer] = (1.0, 1.0, 1.0, alpha)
+            return v
+
+        centre = b.bm.verts.new((x, y, z))
+        centre[layer] = (1.0, 1.0, 1.0, strength)
+        inner = [vert(0.55, k, strength * 0.6) for k in range(n)]
+        outer = [vert(1.0, k, 0.0) for k in range(n)]
+        for k in range(n):
+            m = (k + 1) % n
+            b.bm.faces.new((centre, inner[k], inner[m])).material_index = slot
+            b.bm.faces.new((inner[k], outer[k], outer[m], inner[m])).material_index = slot
+    b.build(name, parent=root)["ao_skip"] = True

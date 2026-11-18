@@ -98,7 +98,9 @@ describe("chain configs", () => {
 
   it("identifies the hens' end-of-lay transport and its off-screen destination", () => {
     const { timeline, captions } = CHAINS.eggs!;
-    const animalSteps = timeline.filter((s) => /HENCRATES|ANIMALS/.test(`${s.from}${s.to}${s.vehicle}`));
+    const animalSteps = timeline.filter((s) =>
+      /HENCRATES|ANIMALS/.test(`${s.from}${s.to}${s.vehicle}`),
+    );
     expect(animalSteps.map((s) => s.id)).toEqual(["load-hens", "hens-leave"]);
     for (const step of animalSteps) {
       const caption = captions.find((c) => c.id === step.captionId)!;

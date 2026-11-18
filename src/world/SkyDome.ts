@@ -2,8 +2,10 @@
 // gradient from the haze at the horizon to a pale zenith, a warm halo and a small sun disc
 // towards the key light. The horizon colour is the fog colour, so distant hills dissolve into
 // the sky instead of a flat backdrop. Values are linear and above 1 near the sun: with
-// post-processing the disc blooms, without it tone mapping tames it.
+// post-processing the disc blooms, without it tone mapping tames it. A slow cloud layer drifts
+// across it; its shadows on the ground come from the same field (WorldFx).
 import { BackSide, Color, Mesh, ShaderMaterial, SphereGeometry, Vector3 } from "three";
+import { CLOUD_ALTITUDE, CLOUD_GLSL, FX_UNIFORMS } from "./WorldFx";
 
 export interface SkyColours {
   /** Colour at the horizon; also used for the fog. */
@@ -38,6 +40,7 @@ const FRAGMENT = /* glsl */ `
   uniform vec3 sunColour;
   uniform vec3 sunDirection;
   varying vec3 vDirection;
+  ${CLOUD_GLSL}
   void main() {
     vec3 d = normalize(vDirection);
     float mu = max(dot(d, sunDirection), 0.0);
@@ -46,10 +49,17 @@ const FRAGMENT = /* glsl */ `
     // The haze warms and brightens around the sun, mostly low in the sky (backlight).
     float lowSky = 1.0 - smoothstep(0.0, 0.6, d.y);
     sky = mix(sky, sunColour * 0.9, pow(mu, 6.0) * 0.35 * (0.4 + 0.6 * lowSky));
+    // Flat cloud layer (the one that shades the ground, see WorldFx): lit towards the sun, grey
+    // underneath, dissolving into the haze well before the horizon.
+    float rise = (${CLOUD_ALTITUDE.toFixed(1)} - cameraPosition.y) / max(d.y, 0.02);
+    float cover = fxClouds(cameraPosition.xz + d.xz * rise) * smoothstep(0.03, 0.22, d.y);
+    vec3 cloud = mix(horizon * 0.86, sunColour * 1.12, 0.45 + 0.55 * pow(mu, 3.0));
+    float veil = 1.0 - 0.8 * cover;
+    sky = mix(sky, cloud, cover * 0.82);
     sky = mix(sky, ground, smoothstep(0.0, -0.3, d.y));
     float halo = pow(mu, 48.0) * 0.5;
     float disc = smoothstep(0.99955, 0.99985, mu) * 6.0;
-    gl_FragColor = vec4(sky + sunColour * (halo + disc), 1.0);
+    gl_FragColor = vec4(sky + sunColour * (halo + disc) * veil, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
@@ -66,6 +76,7 @@ export class SkyDome extends Mesh<SphereGeometry, ShaderMaterial> {
           ground: { value: new Color(colours.ground) },
           sunColour: { value: new Color(colours.sun) },
           sunDirection: { value: sunDirection.clone().normalize() },
+          uFxTime: FX_UNIFORMS.uFxTime,
         },
         vertexShader: VERTEX,
         fragmentShader: FRAGMENT,

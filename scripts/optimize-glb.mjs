@@ -10,7 +10,7 @@ import { Logger, NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, EXTMeshoptCompression } from "@gltf-transform/extensions";
 import { dedup, prune, quantize, reorder, weld } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
-import { applyLightmap, applySurfaces } from "./lib/surfaces.mjs";
+import { applyBakedColours, applyLightmap, applySurfaces } from "./lib/surfaces.mjs";
 
 const [input, output, lightmap] = process.argv.slice(2);
 if (!input || !output) {
@@ -26,6 +26,8 @@ const io = new NodeIO()
 
 const doc = await io.read(input);
 doc.setLogger(new Logger(Logger.Verbosity.WARN));
+const baked = applyBakedColours(doc);
+if (baked) console.log(`  ${baked} primitive(s) à couleur de sommet bakée`);
 const surfaces = applySurfaces(doc);
 console.log(`  ${surfaces} matériau(x) texturé(s)`);
 if (lightmap) console.log(`  lightmap sur ${applyLightmap(doc, lightmap)} matériau(x)`);

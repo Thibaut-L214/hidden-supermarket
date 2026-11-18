@@ -1,4 +1,12 @@
-import { Group, Mesh, BoxGeometry, MeshStandardMaterial, Object3D, PerspectiveCamera, Vector3 } from "three";
+import {
+  Group,
+  Mesh,
+  BoxGeometry,
+  MeshStandardMaterial,
+  Object3D,
+  PerspectiveCamera,
+  Vector3,
+} from "three";
 import { describe, expect, it } from "vitest";
 import { EventBus } from "../src/core/EventBus";
 import { GameState, type GameEvents } from "../src/core/GameState";

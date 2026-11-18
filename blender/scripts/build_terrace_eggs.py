@@ -18,6 +18,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 import landscape_props as land  # noqa: E402
+import lowpoly as lp  # noqa: E402
 import terrace_props as props  # noqa: E402
 from common import MeshBuilder, bevel, box, empty, helper_volume, material, reset_scene, save_blend  # noqa: E402
 
@@ -38,8 +39,11 @@ ROADS = [
     ((14.0, 11.0), (49.0, 11.0), 6.0),  # → in front of the store
     ((HOUSE_HALF_L + 4.0, 28.0), (49.0, 28.0), 6.0),  # apron south of the egg room (animal truck) → joins x = 49
 ]
-# Five identical long houses in a row (docs/DA.md §06: repeated long volumes); only the nearest opens.
-HOUSE_ROWS = [(26.0, 42.0), (50.0, 66.0), (74.0, 90.0), (98.0, 114.0), (122.0, 138.0)]
+# Five long houses of the same footprint in a row (docs/DA.md §06: repeated long volumes); only
+# the nearest opens. They differ the way sheds of different ages do: tone of the sheets, number
+# of wall fans and ridge vents. (y0, y1, tone, wall fans a side, ridge vents)
+HOUSE_ROWS = [(26.0, 42.0, 1.0, 7, 5), (50.0, 66.0, 0.95, 6, 0), (74.0, 90.0, 1.0, 7, 6), (98.0, 114.0, 0.9, 8, 0), (122.0, 138.0, 0.97, 7, 4)]
+FENCE = (-48.0, 20.0, 40.5, 140.0)
 FARM_COMPOUND = (-50.0, 18.0, 42.0, 142.0)
 PACKING_YARD = (50.0, 92.0, 106.0, 130.0)
 # Behind the store, the plateau that carries the forecourt (store GLB, ground at -0.7).
@@ -74,6 +78,7 @@ def materials() -> None:
     M["truck_wheel"] = material("M_TRUCK_WHEEL", "#3E4245", roughness=0.9)
     M["plant"] = material("M_PLANT_WALL", "#C7CCD1", roughness=0.6, metallic=0.2)
     M["plant_roof"] = material("M_PLANT_ROOF", "#7C838A", roughness=0.6, metallic=0.3)
+    M["plant_flat"] = material("M_PLANT_ROOF_FLAT", "#8E9499", roughness=0.9)
     props.materials()
     land.materials()
 
@@ -118,9 +123,17 @@ def landscape(root) -> None:
     flat = [FARM_COMPOUND, PACKING_YARD, (-STORE_HALF_W, STORE_BACK_Y, STORE_HALF_W, TERRACE_DEPTH)]
     flat += [(x0 - 2.5, y0 - 2.5, x1 + 2.5, y1 + 2.5) for x0, y0, x1, y1 in road_rects]
     terrain = land.Terrain(GROUND_Z, flat, PLATEAU, PLATEAU_Z)
-    terrain.build("TERRAIN_EGGS", (-250.0, -100.0, 250.0, 400.0), 5.0, (45.0, 55.0), root)
+    # Rough grass left under the fence, bare compacted ground inside the farm and the yard.
+    fx0, fy0, fx1, fy1 = FENCE
+    bands = [(fx0 - 0.9, fy0 - 0.9, fx1 + 0.9, fy0 + 0.9), (fx0 - 0.9, fy1 - 0.9, fx1 + 0.9, fy1 + 0.9),
+             (fx0 - 0.9, fy0, fx0 + 0.9, fy1), (fx1 - 0.9, fy0, fx1 + 0.9, 24.0), (fx1 - 0.9, 41.0, fx1 + 0.9, fy1)]
+    # Concrete service strips: along the east ends of the houses, and under the silos.
+    lanes = [(HOUSE_HALF_L, 22.0, HOUSE_HALF_L + 4.5, 140.0), (-HOUSE_HALF_L - 6.5, 24.0, -HOUSE_HALF_L, 140.0)]
+    terrain.build("TERRAIN_EGGS", (-250.0, -100.0, 250.0, 400.0), 5.0, (45.0, 55.0), root,
+                  yards=[FARM_COMPOUND, PACKING_YARD], bands=bands, lanes=lanes, roads=ROADS)
 
-    land.roads("ROAD_EGGS", ROADS, GROUND_Z, M["road"], root)
+    # Dashes follow the centre of every road except the short apron spur; none cross a junction.
+    land.roads("ROAD_EGGS", ROADS, GROUND_Z, M["road"], root, dashed=[True] * (len(ROADS) - 1) + [False])
 
     # Hedgerows on some field boundaries (the lattice used for the patchwork).
     hedges = []
@@ -140,8 +153,13 @@ def landscape(root) -> None:
             for x0, y0, x1, y1 in road_rects
         )
 
-    # No hedge across a road (the farm's roads leave the scene to the east).
-    hedges = [h for h in hedges if not crosses_road(h)]
+    def between_fields(seg) -> bool:
+        (ax, ay), (bx, _) = seg
+        fx, fy = round((ax + 1000.0) / 45.0), round((ay + 1000.0) / 55.0)
+        return land.is_field_boundary((fx - 1, fy), (fx, fy)) if ax == bx else land.is_field_boundary((fx, fy - 1), (fx, fy))
+
+    # No hedge across a road (the farm's roads leave the scene to the east), none inside a field.
+    hedges = [h for h in hedges if not crosses_road(h) and between_fields(h)]
     rows = [
         ((55.0, 16.0), (55.0, 26.0), "poplar"),
         ((55.0, 44.0), (55.0, 104.0), "poplar"),
@@ -155,81 +173,94 @@ def landscape(root) -> None:
     land.vegetation("LAND_EGGS", terrain, rows, groves, hedges, root)
 
     # The fence is open on the east side where the apron roads leave the farm.
-    land.perimeter_fence("FENCE_EGGS_FARM", (-48.0, 20.0, 40.5, 140.0), [(40.0, 25.0, 41.0, 40.0)], GROUND_Z, root)
+    land.perimeter_fence("FENCE_EGGS_FARM", FENCE, [(40.0, 25.0, 41.0, 40.0)], GROUND_Z, root)
     land.power_line("POWER_LINE_EGGS", terrain, [(210.0, 140.0), (150.0, 120.0), (103.0, 118.0), (103.0, 82.0), (84.0, 48.0), (41.5, 46.0)], root)
 
-    hills = MeshBuilder()
-    for x, y, rad, h in ((-180.0, 330.0, 90.0, 26.0), (60.0, 380.0, 120.0, 30.0), (220.0, 300.0, 80.0, 22.0)):
-        hills.cone((x, y, GROUND_Z - 0.5), rad, h, M["hill"], segments=24)
-    hills.build("HILLS_EGGS", parent=root)
+    land.hills("HILLS_EGGS", [(-180.0, 330.0, 90.0, 26.0), (60.0, 380.0, 120.0, 30.0), (220.0, 300.0, 80.0, 22.0)], GROUND_Z - 0.5, M["hill"], root)
 
 
-def hollow_house(name: str, y0: float, y1: float, root):
-    """Long building with thin walls and an open top, so its inside shows once the roof goes."""
+def hollow_house(name: str, y0: float, y1: float, root, tone: float, fans: int):
+    """Long building with thin walls and an open top, so its inside shows once the roof goes.
+    The wall boxes give the inner and top faces; the weathered outer faces come with the cladding."""
     x0, x1, z0, z1, t = -HOUSE_HALF_L, HOUSE_HALF_L, GROUND_Z, GROUND_Z + HOUSE_H, 0.25
-    b = MeshBuilder()
-    b.box((x0, y0, z0), (x1, y0 + t, z1), M["farm"])
-    b.box((x0, y1 - t, z0), (x1, y1, z1), M["farm"])
-    b.box((x0, y0, z0), (x0 + t, y1, z1), M["farm"])
-    b.box((x1 - t, y0, z0), (x1, y1, z1), M["farm"])
-    b.box((x0, y0, z0), (x1, y1, z0 + 0.1), M["farm_floor"])
+    b = MeshBuilder(recalc_normals=False)
+    b.box((x0, y0, z0), (x1, y0 + t, z1), M["farm"], skip=("-z", "-y"))
+    b.box((x0, y1 - t, z0), (x1, y1, z1), M["farm"], skip=("-z", "+y"))
+    b.box((x0, y0, z0), (x0 + t, y1, z1), M["farm"], skip=("-z", "-x"))
+    b.box((x1 - t, y0, z0), (x1, y1, z1), M["farm"], skip=("-z", "+x"))
+    b.box((x0, y0, z0), (x1, y1, z0 + 0.1), M["farm_floor"], skip=("-z",))
     # Service door at the east end, towards the egg room and the dock.
-    b.box((x1, (y0 + y1) / 2 - 1.5, z0), (x1 + 0.1, (y0 + y1) / 2 + 1.5, z0 + 3.0), M["fan"])
-    house = bevel(b.build(name, parent=root), 0.02)
+    b.box((x1, (y0 + y1) / 2 - 1.5, z0), (x1 + 0.1, (y0 + y1) / 2 + 1.5, z0 + 3.0), M["fan"], skip=("-z", "-x"))
+    house = b.build(name, parent=root)
     props.house_structure(f"{name}_STRUCTURE", x0, x1, y0, y1, z0, HOUSE_H, 2.2 + 0.3, house)
-    props.house_cladding(f"{name}_CLADDING", x0, x1, y0, y1, z0, HOUSE_H, house)
+    props.house_cladding(f"{name}_CLADDING", x0, x1, y0, y1, z0, HOUSE_H, house, wall_mat=M["farm"], seed=1, tone=tone, fans=fans)
     return house
-
-
-def gable_roof(name: str, lo, hi, ridge: float, mat, parent):
-    """Pitched roof with closed gables, origin at the centre of its eaves (for lifting)."""
-    centre = ((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2])
-    local_lo = tuple(a - c for a, c in zip(lo, centre))
-    local_hi = tuple(a - c for a, c in zip(hi, centre))
-    origin = centre if parent is None else tuple(c - p for c, p in zip(centre, parent.matrix_world.translation))
-    return MeshBuilder().gable(local_lo, local_hi, ridge, mat).build(name, origin, parent)
 
 
 def buildings(root) -> None:
     # Laying-hen houses: repeated long volumes (docs/DA.md §06). The near one opens on reveal.
     # Close and low enough that, from the guardrail, the near wall hides little of the inside.
-    near_y0, near_y1 = 26.0, 42.0
-    hollow_house("BUILDING_EGGS_FARM", near_y0, near_y1, root)
+    near_y0, near_y1, near_tone, near_fans, near_vents = HOUSE_ROWS[0]
+    hollow_house("BUILDING_EGGS_FARM", near_y0, near_y1, root, near_tone, near_fans)
     roof_z = GROUND_Z + HOUSE_H
-    # Roof as its own object, origin at its centre, so it can be lifted or faded.
-    roof = gable_roof("ROOF_EGGS", (-HOUSE_HALF_L - 0.6, near_y0 - 0.6, roof_z), (HOUSE_HALF_L + 0.6, near_y1 + 0.6, roof_z + 0.3), 2.2, M["farm_roof"], root)
-    # The roof is removed on reveal: it must not darken the structure and interior it covers.
-    roof["ao_skip"] = True
+    x0, x1 = -HOUSE_HALF_L, HOUSE_HALF_L
+    # Roof as its own object, origin at the centre of its eaves, so it can be lifted or faded.
+    props.shed_roof("ROOF_EGGS", x0 - 0.6, x1 + 0.6, near_y0 - 0.6, near_y1 + 0.6, roof_z, roof_z + 0.3, 2.2, M["farm_roof"], root,
+                    seed=11, tone=near_tone, vents=near_vents, centred=True)
     props.egg_room("EGG_ROOM_EGGS", HOUSE_HALF_L, 37.5, 42.0, GROUND_Z, root)
     interior(root, near_y0, near_y1)
     empty("ANCHOR_EGGS_FOCUS", (0.0, (near_y0 + near_y1) / 2, GROUND_Z + 1.0), root)
 
-    # The other houses stay closed: same walls, same roof, nothing to lift.
+    # The other houses stay closed, so they are shells: outer walls and roofs, merged into two
+    # meshes for the whole row. Their north faces can never be seen from the terrace.
     silo_ys = [30.0, 36.0]
-    for n, (y0, y1) in enumerate(HOUSE_ROWS[1:], start=2):
-        far = hollow_house(f"BUILDING_EGGS_FARM_{n}", y0, y1, root)
-        gable_roof(f"BUILDING_EGGS_FARM_{n}_ROOF", (-HOUSE_HALF_L - 0.6, y0 - 0.6, roof_z), (HOUSE_HALF_L + 0.6, y1 + 0.6, roof_z + 0.3), 2.2, M["farm_roof"], far)
+    row, roofs = MeshBuilder(recalc_normals=False), MeshBuilder(recalc_normals=False)
+    for n, (y0, y1, tone, fans, vents) in enumerate(HOUSE_ROWS[1:], start=2):
+        props.house_cladding("", x0, x1, y0, y1, GROUND_Z, HOUSE_H, None, wall_mat=M["farm"], seed=n * 17, tone=tone, fans=fans, hidden_north=True, builder=row)
+        row.box((x1, (y0 + y1) / 2 - 1.5, GROUND_Z), (x1 + 0.1, (y0 + y1) / 2 + 1.5, GROUND_Z + 3.0), M["fan"], skip=("-z", "-x"))
+        props.shed_roof("", x0 - 0.6, x1 + 0.6, y0 - 0.6, y1 + 0.6, roof_z, roof_z + 0.3, 2.2, M["farm_roof"], None, seed=n * 29, tone=tone, vents=vents, builder=roofs)
         silo_ys += [y0 + 4.0, y0 + 10.0]
+    row.build("BUILDING_EGGS_FARM_ROW", parent=root)
+    # Named like a single house's roof for the lightmap profile (roofs are left out of the bake).
+    roofs.build("BUILDING_EGGS_FARM_2345_ROOF", parent=root)["ao_skip"] = True
 
     # Feed silos at the west end of every house.
-    silos = MeshBuilder()
-    for y in silo_ys:
-        x = -HOUSE_HALF_L - 4.0
-        silos.cylinder((x, y, GROUND_Z + 1.2), 1.6, 6.5, M["silo"], segments=18)
-        silos.cone((x, y, GROUND_Z + 7.7), 1.65, 1.4, M["silo"], segments=18)
-        for lx, ly in ((-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)):
-            silos.box((x + lx - 0.08, y + ly - 0.08, GROUND_Z), (x + lx + 0.08, y + ly + 0.08, GROUND_Z + 1.3), M["truck_bed"])
-    bevel(silos.build("SILOS_EGGS", parent=root), 0.02)
-    props.silo_details("SILOS_EGGS_DETAILS", [(-HOUSE_HALF_L - 4.0, y) for y in silo_ys], -HOUSE_HALF_L, GROUND_Z, root)
+    props.silos("SILOS_EGGS", [(-HOUSE_HALF_L - 4.0, y) for y in silo_ys], -HOUSE_HALF_L, GROUND_Z, root)
 
     # Framing and information anchors: the whole row from the terrace, the cages, the repetition.
     empty("ANCHOR_EGGS_WIDE", (0.0, 84.0, GROUND_Z + 2.0), root)
     empty("ANCHOR_EGGS_MARK_CAGES", (-14.0, (near_y0 + near_y1) / 2, GROUND_Z + 3.4), root)
     empty("ANCHOR_EGGS_MARK_SITE", (-24.0, 106.0, GROUND_Z + 6.5), root)
 
-    box("PACKING_EGGS_CENTER", (60.0, 100.0, GROUND_Z), (95.0, 125.0, GROUND_Z + 8.0), M["plant"], root)
-    details = MeshBuilder()
-    details.box((59.5, 99.5, GROUND_Z + 8.0), (95.5, 125.5, GROUND_Z + 8.4), M["plant_roof"])
+    packing_centre(root)
+
+
+def packing_centre(root) -> None:
+    """Packing centre (docs/DA.md §03: steel, slate, cold white): insulated panel walls with
+    rain streaks under the parapet, flat roof with plant, loading docks under canopies."""
+    px0, py0, px1, py1, top = 60.0, 100.0, 95.0, 125.0, GROUND_Z + 8.0
+    shell = MeshBuilder(recalc_normals=False)
+    for a, c, normal, seed in (((px0, py0), (px1, py0), (0, -1), 3), ((px1, py0), (px1, py1), (1, 0), 5), ((px1, py1), (px0, py1), (0, 1), 7), ((px0, py1), (px0, py0), (-1, 0), 9)):
+        props.clad_wall(shell, a, c, GROUND_Z + 0.5, top, normal, M["plant"], seed, spacing=3.0)
+    # Flat roof behind a parapet, mottled by standing water and dust.
+    lp.panel(shell, (px0, py0, top - 0.25), (px1 - px0, 0.0, 0.0), (0.0, py1 - py0, 0.0), (7, 5), M["plant_flat"],
+             lambda s, t: lp.scale(lp.WHITE, 0.82 + 0.18 * lp.rand(int(s * 7), int(t * 5), 3)))
+    shell.build("PACKING_EGGS_CENTER", parent=root)
+
+    details = MeshBuilder(recalc_normals=False)
+    cap = props.M["trim"]
+    for lo, hi in (((px0 - 0.1, py0 - 0.1), (px1 + 0.1, py0 + 0.2)), ((px0 - 0.1, py1 - 0.2), (px1 + 0.1, py1 + 0.1)),
+                   ((px0 - 0.1, py0 - 0.1), (px0 + 0.2, py1 + 0.1)), ((px1 - 0.2, py0 - 0.1), (px1 + 0.1, py1 + 0.1))):
+        details.box((lo[0], lo[1], top - 0.25), (hi[0], hi[1], top + 0.12), cap, skip=("-z",))
+    # Plinth course, downpipes at the corners of the long faces.
+    details.box((px0 - 0.06, py0 - 0.06, GROUND_Z), (px1 + 0.06, py1 + 0.06, GROUND_Z + 0.5), props.M["base"], skip=("-z",))
+    for x, y in ((px0 + 0.4, py0 - 0.1), (px1 - 0.4, py0 - 0.1), (px1 + 0.1, py0 + 0.4), (px1 + 0.1, py1 - 0.4), ((px0 + px1) / 2, py0 - 0.1)):
+        props.downpipe(details, x, y, GROUND_Z, top)
+    # Rooftop plant: air handling units and a run of duct.
+    for k, (ux, uy) in enumerate(((68.0, 108.0), (76.0, 108.0), (84.0, 116.0))):
+        details.box((ux - 1.4, uy - 1.0, top - 0.25), (ux + 1.4, uy + 1.0, top + 0.95), props.M["fan_housing"], skip=("-z",))
+        lp.quad(details, ((ux - 1.0, uy - 0.7, top + 0.96), (ux + 1.0, uy - 0.7, top + 0.96), (ux + 1.0, uy + 0.7, top + 0.96), (ux - 1.0, uy + 0.7, top + 0.96)), props.M["grill"])
+    details.box((68.0, 111.5, top - 0.25), (84.0, 112.1, top + 0.3), props.M["trim"], skip=("-z",))
     # Loading docks: inbound on the south face, outbound on the west face, under canopies.
     props.dock_doors(
         details,
@@ -238,11 +269,18 @@ def buildings(root) -> None:
     )
     details.box((64.0, 96.0, GROUND_Z + 4.4), (88.0, 100.0, GROUND_Z + 4.7), M["plant_roof"])
     details.box((56.0, 104.0, GROUND_Z + 4.4), (60.0, 118.0, GROUND_Z + 4.7), M["plant_roof"])
+    for x, y in ((64.3, 96.3), (76.0, 96.3), (87.7, 96.3), (56.3, 104.3), (56.3, 117.7)):
+        details.box((x - 0.08, y - 0.08, GROUND_Z), (x + 0.08, y + 0.08, GROUND_Z + 4.4), props.M["trim"], skip=("-z", "+z"))
     props.forklift(details, 57.5, 119.5, GROUND_Z)
+    details.build("PACKING_EGGS_DETAILS", parent=root)
     # Office annex, lower and lighter.
-    details.box((95.0, 112.0, GROUND_Z), (103.0, 124.0, GROUND_Z + 4.5), M["plant_annex"])
-    # Absolute coordinates: built under the module root, not under the centred plant box.
-    bevel(details.build("PACKING_EGGS_DETAILS", parent=root), 0.015)
+    annex = MeshBuilder(recalc_normals=False)
+    for a, c, normal, seed in (((95.0, 112.0), (103.0, 112.0), (0, -1), 21), ((103.0, 112.0), (103.0, 124.0), (1, 0), 23), ((103.0, 124.0), (95.0, 124.0), (0, 1), 25)):
+        props.clad_wall(annex, a, c, GROUND_Z, GROUND_Z + 4.5, normal, M["plant_annex"], seed, spacing=3.0)
+    annex.box((94.9, 111.9, GROUND_Z + 4.5), (103.1, 124.1, GROUND_Z + 4.65), props.M["trim"], skip=("-z",))
+    for k in range(3):
+        annex.box((96.5 + k * 2.2, 111.96, GROUND_Z + 1.6), (98.0 + k * 2.2, 112.0, GROUND_Z + 3.0), props.M["window"], skip=("+y",))
+    annex.build("PACKING_EGGS_ANNEX", parent=root)
 
 
 def interior(root, y0: float, y1: float) -> None:
@@ -257,7 +295,7 @@ def interior(root, y0: float, y1: float) -> None:
 def path(route: str, points, parent) -> None:
     """Ordered empties PATH_<route>_<NN>; glTF has no curves, the runtime rebuilds a spline."""
     for i, (x, y) in enumerate(points):
-        empty(f"PATH_EGGS_{route}_{i:02d}", (x, y, GROUND_Z + 0.05), parent)
+        empty(f"PATH_EGGS_{route}_{i:02d}", (x, y, GROUND_Z + land.ROAD_TOP), parent)
 
 
 def logistics(root) -> None:
@@ -265,7 +303,8 @@ def logistics(root) -> None:
     animal transport truck that leaves the farm; eggs are collected in crates, taken by truck to
     the packing centre, and packed goods go by truck towards the store. Where the hens are going
     is not shown (TODO_SOURCE)."""
-    g = GROUND_Z + 0.05
+    # Road surface: trucks, loads on the dock and path points stand on it.
+    g = GROUND_Z + land.ROAD_TOP
     east = HOUSE_HALF_L
     box("DOCK_EGGS_FARM", (east, 29.0, GROUND_Z), (east + 4.0, 37.0, g), M["road"], root)
     # Units are pallets: crates stacked on pallets read at the terrace's distance.
@@ -280,15 +319,6 @@ def logistics(root) -> None:
         cells=[(x, y) for y in range(4) for x in range(2)], step=(1.1, 1.3), slats=True,
     )
     props.truck("TRUCK_EGGS_DELIVERY", "CARGO_EGGS_DELIVERY", props.carton_pallet, props.M["cab_delivery"], (57.0, 111.0, g), root)
-
-    # Dashes follow the centre of every road except the short apron spur; none cross a junction.
-    dashed = [True] * (len(ROADS) - 1) + [False]
-    props.road_markings(
-        "ROAD_EGGS_MARKINGS",
-        [(a, b, land.road_rect(rd), flag) for rd, flag in zip(ROADS, dashed) for a, b in [(rd[0], rd[1])]],
-        GROUND_Z + 0.05,
-        root,
-    )
 
     path("ANIMALS", [(east + 7.0, 28.0), (46.0, 28.2), (48.0, 30.4), (49.6, 33.4), (52.5, 35.0), (62.0, 35.0), (100.0, 35.0), (170.0, 35.0)], root)
     path("FARM", [(east + 6.0, 35.0), (56.0, 35.0), (72.0, 35.5), (75.0, 40.0), (75.0, 70.0), (75.0, 96.0)], root)

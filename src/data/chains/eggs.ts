@@ -70,8 +70,7 @@ export const eggs: ChainConfig = {
     verified({
       id: "eggs.system",
       title: "Cages aménagées",
-      short:
-        "Dans l’Union européenne, une cage aménagée offre au moins 750 cm² par poule.",
+      short: "Dans l’Union européenne, une cage aménagée offre au moins 750 cm² par poule.",
       detail:
         "Le minimum réglementaire est de 750 cm² par poule, dont 600 cm² utilisables. La cage doit aussi comporter un nid, une litière et au moins 15 cm de perchoir par poule. La vue schématise les rangées et ne montre pas tous ces équipements.",
       source: EU_LAYING_HENS,
@@ -90,7 +89,8 @@ export const eggs: ChainConfig = {
     verified({
       id: "eggs.hens.leave",
       title: "Transport vers l’abattoir",
-      short: "Le camion conduit les poules en fin de ponte vers un abattoir, hors champ dans cette scène.",
+      short:
+        "Le camion conduit les poules en fin de ponte vers un abattoir, hors champ dans cette scène.",
       detail:
         "L’avis de l’EFSA examine spécifiquement le transport routier des poules en fin de ponte vers l’abattoir. La scène montre le départ du camion, mais pas le trajet ni l’arrivée.",
       source: EFSA_POULTRY_TRANSPORT,
@@ -115,7 +115,8 @@ export const eggs: ChainConfig = {
     verified({
       id: "eggs.process",
       title: "Tri et conditionnement",
-      short: "Les œufs de catégorie A sont triés par qualité et poids, puis marqués et emballés sous 10 jours.",
+      short:
+        "Les œufs de catégorie A sont triés par qualité et poids, puis marqués et emballés sous 10 jours.",
       detail:
         "Dans l’Union européenne, un centre d’emballage classe les œufs de catégorie A par qualité et poids. Ils doivent être triés, marqués et emballés dans les 10 jours suivant la ponte. L’intérieur du centre n’est pas montré.",
       source: EU_EGGS_MARKETING,

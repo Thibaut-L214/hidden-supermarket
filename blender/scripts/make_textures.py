@@ -88,6 +88,16 @@ def gen_plaster(n, seed):
     return height * 0.5, COLOUR_CENTRE + 0.035 * cloud, ROUGH_CENTRE + 0.05 * height
 
 
+def gen_plaster_fine(n, seed):
+    """Smooth painted plaster seen from arm's length (store walls and ceiling): roller stipple
+    of a few millimetres at a 1 m repeat, hardly any tonal cloud (it would show the repeat on a
+    24 m wall; the lightmap gives the walls their variation). Fixed seeds."""
+    stipple = fbm(n, [(180, 180, 0.6), (256, 256, 0.4)], 9101)
+    trowel = fbm(n, [(5, 5, 0.6), (11, 11, 0.4)], 9102)
+    height = 0.42 * stipple + 0.1 * trowel
+    return height, COLOUR_CENTRE + 0.008 * trowel + 0.006 * stipple, ROUGH_CENTRE + 0.04 * stipple
+
+
 def gen_concrete(n, seed):
     base = fbm(n, [(8, 8, 0.4), (32, 32, 0.3), (128, 128, 0.2), (256, 256, 0.1)], seed)
     pores = np.clip((fbm(n, [(200, 200, 1)], seed + 1) - 0.55) * 4, 0, 1)
@@ -135,6 +145,81 @@ def gen_soil(n, seed):
     grit = fbm(n, [(220, 220, 1)], seed + 1)
     return clods * 0.8 + grit * 0.3, COLOUR_CENTRE - 0.02 + 0.07 * clods + 0.02 * grit, ROUGH_CENTRE + 0.1 * grit
 
+# --- terraces: sheet metal, sandwich panels, roads, crop rows -----------------------------------
+# Seen from a raised terrace, 30 m and more away: coarse, directional patterns that survive
+# mip-mapping. Ribs, joints and rows run along V (they vary along U); meshes that need another
+# direction author their own UV0 (blender/scripts/landscape_props.py). These generators use fixed
+# seeds, so adding a set elsewhere in surfaces.json never changes them.
+
+def _across(n):
+    """U coordinate of each pixel column, in [0, 1)."""
+    return ((np.arange(n) + 0.5) / n)[None, :] * np.ones((n, 1))
+
+
+def gen_cladding(n, seed):
+    """Trapezoidal steel sheet, six ribs per repeat, with rain streaks along the ribs."""
+    x = _across(n)
+    d = np.abs((x * 6) % 1.0 - 0.5)
+    rib = np.clip((0.30 - d) / 0.15, 0, 1)
+    streaks = fbm(n, [(40, 2, 0.6), (90, 3, 0.4)], 7001)
+    cloud = fbm(n, [(3, 3, 1)], 7002)
+    sheet = (np.random.default_rng(7003).random(2)[(x * 2).astype(int) % 2] - 0.5) * 0.045
+    colour = COLOUR_CENTRE + sheet + 0.035 * streaks + 0.02 * cloud - 0.035 * (1 - rib)
+    return rib + 0.03 * streaks, colour, ROUGH_CENTRE + 0.08 * streaks + 0.05 * (1 - rib)
+
+
+def gen_panel(n, seed):
+    """Insulated sandwich panels, three per repeat: narrow joints, faint micro-ribbing."""
+    x = _across(n)
+    p = (x * 3) % 1.0
+    joint = np.clip(1 - np.minimum(p, 1 - p) * (n / 3) / 2.5, 0, 1)
+    micro = 0.05 * np.sin(2 * np.pi * x * 36)
+    streaks = fbm(n, [(30, 2, 1)], 7011)
+    tone = (np.random.default_rng(7012).random(3)[(x * 3).astype(int) % 3] - 0.5) * 0.025
+    colour = COLOUR_CENTRE + tone + 0.02 * streaks - 0.12 * joint
+    return micro - 0.6 * joint, colour, ROUGH_CENTRE - 0.03 + 0.05 * streaks + 0.1 * joint
+
+
+def gen_asphalt(n, seed):
+    """Worn asphalt: aggregate grain, blotches, faint lengthwise streaks (roads map V along)."""
+    grit = fbm(n, [(180, 180, 0.6), (90, 90, 0.4)], 7021)
+    blotch = fbm(n, [(5, 5, 0.6), (13, 13, 0.4)], 7022)
+    streak = fbm(n, [(26, 2, 1)], 7023)
+    colour = COLOUR_CENTRE - 0.01 + 0.05 * blotch + 0.025 * grit + 0.035 * streak
+    return grit * 0.6 + blotch * 0.2, colour, ROUGH_CENTRE + 0.08 * grit - 0.04 * streak
+
+
+def gen_gravel(n, seed):
+    """Compacted gravel: yards and road shoulders."""
+    stones = fbm(n, [(70, 70, 0.5), (150, 150, 0.5)], 7031)
+    blotch = fbm(n, [(4, 4, 0.6), (11, 11, 0.4)], 7032)
+    return stones, COLOUR_CENTRE - 0.015 + 0.06 * stones + 0.06 * blotch, ROUGH_CENTRE + 0.1 * stones
+
+
+def gen_furrows(n, seed):
+    """Ploughed soil: sixteen ridges per repeat, lighter (drier) crests, cloddy."""
+    x = _across(n)
+    ridge = np.sin(2 * np.pi * x * 16)
+    clods = fbm(n, [(40, 40, 0.5), (110, 110, 0.5)], 7041)
+    blotch = fbm(n, [(4, 4, 1)], 7042)
+    colour = COLOUR_CENTRE - 0.03 + 0.085 * ridge + 0.03 * clods + 0.03 * blotch
+    return ridge * 0.8 + clods * 0.3, colour, ROUGH_CENTRE + 0.08 * clods
+
+
+def gen_croprows(n, seed):
+    """Drilled crop: thirty-two plant rows per repeat on bare soil, one pair of tramlines.
+    Returns an RGB tint: the rows keep the material's colour, the soil between them turns warm."""
+    x = _across(n)
+    row = smoothstep(0.3, 0.7, 0.5 + 0.5 * np.cos(2 * np.pi * x * 32))
+    tram = np.exp(-(((x - 0.444) / 0.011) ** 2)) + np.exp(-(((x - 0.556) / 0.011) ** 2))
+    leaf = fbm(n, [(60, 90, 0.5), (140, 200, 0.5)], 7051)
+    blotch = fbm(n, [(4, 4, 1)], 7052)
+    plant = np.clip(row * (1 - np.clip(tram, 0, 1)) * (0.85 + 0.3 * leaf), 0, 1)
+    soil = np.array([0.86, 0.76, 0.68])
+    green = np.array([0.93, 0.985, 0.9])
+    colour = soil + (green - soil) * plant[..., None] + (0.03 * blotch + 0.02 * leaf)[..., None]
+    return plant * (0.75 + 0.25 * leaf), colour, ROUGH_CENTRE + 0.08 * leaf
+
 
 GENERATORS = {
     "floor": gen_floor,
@@ -146,6 +231,13 @@ GENERATORS = {
     "wood": gen_wood,
     "grass": gen_grass,
     "soil": gen_soil,
+    "cladding": gen_cladding,
+    "panel": gen_panel,
+    "asphalt": gen_asphalt,
+    "gravel": gen_gravel,
+    "furrows": gen_furrows,
+    "croprows": gen_croprows,
+    "plaster_fine": gen_plaster_fine,
 }
 
 
@@ -191,17 +283,22 @@ def goods_atlas(size: int = 512) -> np.ndarray:
 def main() -> None:
     with open(os.path.join(ROOT, "surfaces.json"), encoding="utf-8") as f:
         sets = json.load(f)["sets"]
+    # Optional set names after `--`: regenerate only those (the others stay untouched on disk).
+    only = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     for seed, (name, spec) in enumerate(sets.items(), start=1):
+        if only and name not in only:
+            continue
         n = spec["size"]
         height, colour, rough = GENERATORS[name](n, seed * 101)
-        c = np.broadcast_to(colour[..., None], (n, n, 3))
+        c = colour if colour.ndim == 3 else np.broadcast_to(colour[..., None], (n, n, 3))
         write_jpeg(os.path.join(ROOT, f"{name}_color.jpg"), to_u8(c))
         write_jpeg(os.path.join(ROOT, f"{name}_normal.jpg"), to_u8(normal_map(height, 3.0)), quality=92)
         orm = np.stack([np.ones_like(rough), rough, np.ones_like(rough)], axis=-1)
         write_jpeg(os.path.join(ROOT, f"{name}_orm.jpg"), to_u8(orm))
         print(f"{name}: {n}² ok")
-    write_jpeg(os.path.join(ROOT, "goods_normal.jpg"), to_u8(goods_atlas()), quality=95)
-    print("goods atlas ok")
+    if not only:
+        write_jpeg(os.path.join(ROOT, "goods_normal.jpg"), to_u8(goods_atlas()), quality=95)
+        print("goods atlas ok")
 
 
 main()

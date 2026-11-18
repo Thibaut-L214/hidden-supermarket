@@ -2,10 +2,12 @@ import {
   Color,
   EquirectangularReflectionMapping,
   FogExp2,
+  Mesh,
   PMREMGenerator,
   PerspectiveCamera,
   Scene,
   type Texture,
+  Vector3,
 } from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
@@ -33,10 +35,13 @@ import { RecapPanel } from "../ui/RecapPanel";
 import { SourcePanel } from "../ui/SourcePanel";
 import { Subtitles } from "../ui/Subtitles";
 import { CUE_SUBTITLES, type Cue, playCue } from "../ui/sound";
+import { Ambience } from "../world/Ambience";
 import { Atmosphere } from "../world/Atmosphere";
 import { SkyDome, TERRACE_SKY } from "../world/SkyDome";
+import { applyWorldFx, updateWorldFx } from "../world/WorldFx";
 import { Soundscape } from "../world/Soundscape";
 import { CollisionWorld } from "../world/CollisionWorld";
+import { FloorReflection } from "../world/FloorReflection";
 import { FPSController } from "../world/FPSController";
 import { EYE_HEIGHT, StoreWorld } from "../world/StoreWorld";
 import { createErrorLog, recoverFromError } from "./errors";
@@ -60,7 +65,7 @@ const scene = new Scene();
 // Hazy blue-grey horizon (docs/DA.md §03, terrace): the fog takes the sky's horizon colour, so
 // distant hills fade into the sky dome. Exponential, so the store's depth is barely touched.
 const HAZE = new Color(TERRACE_SKY.horizon);
-scene.fog = new FogExp2(HAZE, 0.0042);
+scene.fog = new FogExp2(HAZE, 0.0036);
 // Image-based light: a generic room until the baked store panorama is loaded (see `environments`).
 const pmrem = new PMREMGenerator(renderer);
 const fallbackEnvironment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -70,8 +75,13 @@ const camera = new PerspectiveCamera(70, 1, 0.05, 500);
 // Two passes per frame (scene, then the hand-held scanner over it): clear and count manually.
 renderer.autoClear = false;
 renderer.info.autoReset = false;
+/** Foliage sway in metres: wide for trees seen from the terrace, slight for those on the forecourt. */
+const TERRACE_WIND = 0.16;
+const PARVIS_WIND = 0.035;
 /** First-person scanner, once its GLB is loaded (the game works without it). */
 let scannerView: ScannerView | null = null;
+/** Satin reflection of the store floor, once the store is loaded; idle in reduced quality. */
+let floorReflection: FloorReflection | null = null;
 /** GTAO, bloom and SMAA; absent in reduced quality. */
 let postFx: PostProcessing | null = null;
 
@@ -98,8 +108,10 @@ const stageMarkers = new StageMarkers(element("#stage-markers"), camera);
 const hud = new HUD(element("#hud-prompt"), status, element("#caption"));
 const atmosphere = new Atmosphere(scene, renderer);
 const sky = new SkyDome(atmosphere.sunDirection);
-scene.add(sky);
-postFx = new PostProcessing(renderer, scene, camera, [sky]);
+// Motes and birds are not geometry either: kept out of the AO pass like the sky.
+const ambience = new Ambience(new Vector3(20, -6, -150));
+scene.add(sky, ambience);
+postFx = new PostProcessing(renderer, scene, camera, [sky, ambience]);
 const subtitles = new Subtitles(element("#subtitles"));
 const soundscape = new Soundscape(camera);
 const perf = new PerfMonitor();
@@ -309,6 +321,7 @@ function createWorld(store: StoreWorld) {
     const config = CHAINS[chain];
     if (root && config) {
       atmosphere.shade(root);
+      applyWorldFx(root, TERRACE_WIND);
       postFx?.excludeGlass(root);
       stage.attach(config, root);
     } else stage.detach();
@@ -359,8 +372,10 @@ function draw(): void {
   renderer.info.reset();
   sky.follow(camera.position);
   stageMarkers.update();
+  camera.updateMatrixWorld();
+  floorReflection?.render(renderer, scene, camera, !settings.lowQuality, (p) => sky.follow(p));
   if (postFx?.enabled) {
-    postFx.setOutdoor(atmosphere.outdoor);
+    postFx.setZone(atmosphere.outdoor, atmosphere.mood);
     postFx.render(0);
   } else {
     renderer.clear();
@@ -392,6 +407,8 @@ function step(dt: number, realDt: number): void {
     stage.update(dt);
     exit.update(dt);
     atmosphere.update(dt, Math.max(transition.outdoorTarget, exit.outdoorTarget));
+    updateWorldFx(dt, atmosphere.outdoor, atmosphere.sunDirection, settings.reducedMotion);
+    ambience.update(atmosphere.outdoor, renderer.domElement.height, camera.fov);
   }
   soundscape.setPaused(clock.paused);
   soundscape.update(dt, game.snapshot.state, atmosphere.outdoor);
@@ -404,6 +421,10 @@ async function loadStore(): Promise<void> {
   try {
     const store = await StoreWorld.load(assets, scene);
     atmosphere.shadeStore(store.root);
+    const floor = store.root.getObjectByName("STORE_FLOOR");
+    if (floor instanceof Mesh) floorReflection = new FloorReflection(store.root, floor);
+    const parvis = store.root.getObjectByName("PARVIS_ROOT");
+    if (parvis) applyWorldFx(parvis, PARVIS_WIND);
     postFx?.excludeGlass(store.root);
     collisions.addFrom(store.root);
     const spawn = store.spawnPose();

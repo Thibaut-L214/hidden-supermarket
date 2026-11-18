@@ -45,6 +45,41 @@
       "tile": 4.0,
       "size": 512,
       "normalScale": 0.9
+    },
+    "cladding": {
+      "tile": 2.0,
+      "size": 512,
+      "normalScale": 1.0
+    },
+    "panel": {
+      "tile": 3.0,
+      "size": 512,
+      "normalScale": 0.6
+    },
+    "asphalt": {
+      "tile": 4.0,
+      "size": 512,
+      "normalScale": 0.5
+    },
+    "gravel": {
+      "tile": 3.0,
+      "size": 256,
+      "normalScale": 0.8
+    },
+    "furrows": {
+      "tile": 12.8,
+      "size": 512,
+      "normalScale": 1.0
+    },
+    "croprows": {
+      "tile": 16.0,
+      "size": 512,
+      "normalScale": 0.7
+    },
+    "plaster_fine": {
+      "tile": 1.0,
+      "size": 512,
+      "normalScale": 0.18
     }
   },
   "goods": {
@@ -52,15 +87,23 @@
     "normal": "goods_normal.jpg",
     "normalScale": 1.0
   },
+  "atlases": {
+    "M_PACK_ATLAS": {
+      "color": "pack_color.jpg",
+      "normal": "pack_normal.jpg",
+      "normalScale": 1.0
+    }
+  },
   "materials": {
     "M_STORE_FLOOR": "floor",
-    "M_STORE_WALL": "plaster",
-    "M_STORE_CEILING": "plaster",
+    "M_STORE_WALL": "plaster_fine",
+    "M_STORE_CEILING": "plaster_fine",
+    "M_PARKING_ASPHALT": "asphalt",
     "M_FACADE_PANEL": "plaster",
     "M_TERRACE_FACADE": "plaster",
-    "M_FARM_WALL": "plaster",
+    "M_FARM_WALL": "cladding",
     "M_FARM_ANNEX": "plaster",
-    "M_PLANT_WALL": "plaster",
+    "M_PLANT_WALL": "panel",
     "M_PARVIS_PAVING": "concrete",
     "M_PARVIS_PLANTER": "concrete",
     "M_PAVING_TILE": "concrete",
@@ -69,7 +112,7 @@
     "M_CONCRETE_BASE": "concrete",
     "M_TERRACE_CONCRETE": "concrete",
     "M_FARM_FLOOR": "concrete",
-    "M_ROAD": "concrete",
+    "M_ROAD": "asphalt",
     "M_SHELF_METAL": "metal",
     "M_FIXTURE_METAL": "metal",
     "M_FIXTURE_DARK": "metal",
@@ -89,8 +132,8 @@
     "M_TRUCK_CHASSIS": "metal",
     "M_TRUCK_DECK": "metal",
     "M_WHEEL_HUB": "metal",
-    "M_FARM_ROOF": "metal",
-    "M_PLANT_ROOF": "metal",
+    "M_FARM_ROOF": "cladding",
+    "M_PLANT_ROOF": "cladding",
     "M_CLADDING_RIB": "metal",
     "M_SHELF_ACCENT": "paint",
     "M_PRICE_RAIL_ACCENT": "paint",
@@ -114,8 +157,8 @@
     "M_PARVIS_GRASS": "grass",
     "M_LAND_GRASS": "grass",
     "M_FIELD_MEADOW": "grass",
-    "M_FIELD_CROP": "grass",
-    "M_FIELD_WHEAT": "grass",
+    "M_FIELD_CROP": "croprows",
+    "M_FIELD_WHEAT": "croprows",
     "M_HILL": "grass",
     "M_HEDGE_DARK": "grass",
     "M_HEDGE_LIGHT": "grass",
@@ -125,16 +168,20 @@
     "M_CROWN_PINE": "grass",
     "M_CROWN_POPLAR": "grass",
     "M_FIELD_FALLOW": "soil",
-    "M_FIELD_PLOUGHED": "soil",
-    "M_LAND_YARD": "soil",
-    "M_ROAD_SHOULDER": "soil",
+    "M_FIELD_PLOUGHED": "furrows",
+    "M_LAND_YARD": "gravel",
+    "M_ROAD_SHOULDER": "gravel",
     "M_PLANTER_SOIL": "soil",
     "M_TREE_BARK": "wood",
     "M_BEEF_STRAW": "soil",
     "M_BEEF_FEED": "soil",
     "M_BEEF_HAY": "grass",
     "M_BEEF_CARTON": "carton",
-    "M_BEEF_TARP": "paint"
+    "M_BEEF_TARP": "paint",
+    "M_FIELD_VERGE": "grass",
+    "M_PLANT_ANNEX": "panel",
+    "M_BEEF_PANEL": "panel",
+    "M_BEEF_COLD_PANEL": "panel"
   },
   "brand": {
     "M_LEAFLET_L214": "brand/brand_leaflet.jpg",

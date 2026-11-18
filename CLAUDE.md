@@ -50,6 +50,8 @@ Blender attendu dans `/Applications/Blender.app` ; sinon `BLENDER=/chemin/vers/b
 - `blender/scripts/make_textures.py` : sets PBR tileables (`blender/textures/`) ; `surfaces.py` projette les UV à l'export, `lightmap.py` cuit l'éclairage (profils `store`, `terrace`), `bake_env.py` le panorama HDR du magasin.
 - `blender/scripts/make_brand_textures.py` : tracts et banderole du parvis ; le logo officiel se dépose dans `blender/textures/brand/l214_logo.png`, sinon un mot-symbole de substitution est dessiné.
 - `blender/scripts/build_scanner_hand.py` : main et terminal de scan en vue subjective (`public/assets/shared/`).
+- `blender/scripts/lowpoly.py` : primitives facettées, teinte bakée par facette (`COLOR_0`) et attribut `_PHASE` (phase, hauteur, poids de tête) lu par `src/world/WorldFx.ts` pour le vent et l'animation des animaux ; matériaux `M_FOLIAGE_*` et `M_ANIMAL_*`.
+- `blender/scripts/pack_atlas.py`, `make_store_textures.py` : atlas d'emballages fictifs, étiquettes et affiches du magasin (`M_PACK_ATLAS`).
 - Occlusion ambiante bakée à l'export (couleur de sommet `AO`) ; `pnpm assets --no-ao` pour itérer vite ; propriété `ao_skip` pour exclure un objet.
 - `node scripts/inspect-glb.mjs <fichier.glb>` : triangles et sommets par nœud.
 - Après tout export : `pnpm test` vérifie noms, hiérarchie et échelle des nœuds.

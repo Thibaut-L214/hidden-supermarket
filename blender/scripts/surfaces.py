@@ -41,6 +41,9 @@ def project_surface_uvs(objects) -> int:
         )
         if any(m and m.name in mapping for m in mesh.materials):
             textured += 1
+        # UV0 authored by the builder (turned crop rows, roads mapped along their length): kept.
+        if obj.get("uv_authored") and UV_NAME in mesh.uv_layers:
+            continue
 
         verts = np.empty(len(mesh.vertices) * 3)
         mesh.vertices.foreach_get("co", verts)

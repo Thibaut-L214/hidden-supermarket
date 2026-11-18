@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from common import apply_modifiers, bake_ambient_occlusion, export_glb, rendered_meshes  # noqa: E402
 from lightmap import PROFILES, bake_lightmap, build_lightmap_uvs, isolation_key  # noqa: E402
+from lowpoly import apply_tint  # noqa: E402
 from surfaces import project_brand_uvs, project_goods_uvs, project_surface_uvs  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
@@ -56,4 +57,7 @@ if "--no-ao" not in argv:
     ground = (lambda o: o.name == profile.floor or o.name.startswith(("TERRAIN_", "ROAD_", "DOCK_"))) if profile else None
     count = bake_ambient_occlusion([o for o in meshes if o.name not in lit], isolate=isolate, ground=ground)
     print(f"AO baked on {count} meshes in {time.time() - started:.1f} s")
+# Baked colour variation (lowpoly.TINT) joins the occlusion in COLOR_0, with or without --no-ao.
+# On the terraces every baked mesh takes that route, so occlusion reaches all its materials.
+print(f"vertex colours written on {apply_tint(meshes, every=profile_name == 'terrace')} meshes")
 export_glb(out)

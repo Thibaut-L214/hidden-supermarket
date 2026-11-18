@@ -17,7 +17,7 @@ import { DEFAULT_EXPOSURE } from "../app/renderer";
 
 /** Time constant of the blend, in seconds. */
 const BLEND_SECONDS = 0.9;
-const OUTDOOR_EXPOSURE = 0.92;
+const OUTDOOR_EXPOSURE = 1.0;
 /** Image-based light of each zone (the baked store panorama, the terrace sky). */
 const STORE_ENVIRONMENT = 0.5;
 /**
@@ -25,7 +25,15 @@ const STORE_ENVIRONMENT = 0.5;
  * in corners), so it sits above the 1.3 of the unbaked store to keep the high-key ivory look.
  */
 const STORE_SKY = 1.9;
-const OUTDOOR_ENVIRONMENT = 0.6;
+const OUTDOOR_ENVIRONMENT = 0.45;
+/**
+ * Daylight balance: a strong sun over a weak fill, so the sun's shadows carry the relief of the
+ * site (docs/DA.md §03, « ombres directionnelles, contraste local »). The store's own lights are
+ * all but out once outside: left on, they flatten those shadows.
+ */
+const SUN = 4.0;
+const OUTDOOR_SKY = 0.8;
+const STORE_LIGHT_OUTDOORS = 0.1;
 /** The environment never fades below this share while it is swapped, so the swap is not a flash. */
 const SWAP_FLOOR = 0.35;
 /** Time constant of the "industrial" mood, in seconds: slower than the zone blend. */
@@ -53,8 +61,8 @@ export class Atmosphere {
 
   private readonly storeSky = new HemisphereLight("#fff8ec", "#b9ab90", STORE_SKY);
   private readonly storeKey = new DirectionalLight("#fffaf0", 1.4);
-  private readonly sky = new HemisphereLight("#dde5ea", "#9c947f", 1.1);
-  private readonly sun = new DirectionalLight("#fff1dc", 2.4);
+  private readonly sky = new HemisphereLight("#dde5ea", "#9c947f", OUTDOOR_SKY);
+  private readonly sun = new DirectionalLight("#fff1dc", SUN);
   private readonly skyColor = new Color("#dde5ea");
   private readonly groundColor = new Color("#9c947f");
   private readonly sunColor = new Color("#fff1dc");
@@ -70,25 +78,40 @@ export class Atmosphere {
     this.storeKey.target.position.set(0, 0, -7.5);
     this.storeKey.castShadow = true;
     this.storeKey.shadow.mapSize.set(1024, 1024);
-    Object.assign(this.storeKey.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 30 });
+    Object.assign(this.storeKey.shadow.camera, {
+      left: -5,
+      right: 5,
+      top: 5,
+      bottom: -5,
+      near: 1,
+      far: 30,
+    });
     this.storeKey.shadow.camera.updateProjectionMatrix();
     this.storeKey.shadow.bias = -0.0005;
     this.storeKey.shadow.normalBias = 0.03;
     this.storeKey.shadow.radius = 3;
-    // Low, slightly ahead and to the left of the view over the farm: controlled backlight.
-    // Building-scale shadows only give the outdoor volumes their directional contrast.
+    // Low, to the left and slightly ahead of the view over the farm: a three-quarter backlight,
+    // so shadows rake across the site towards the viewer's right instead of hiding behind
+    // the volumes.
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFShadowMap;
     this.sun.target.position.set(0, -23, -55);
-    this.sun.position.set(-80, 60, -150);
+    this.sun.position.set(-150, 75, -90);
     this.sun.castShadow = true;
     const shadow = this.sun.shadow;
-    shadow.mapSize.set(2048, 2048);
+    shadow.mapSize.set(4096, 4096);
     Object.assign(shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 300 });
     shadow.camera.updateProjectionMatrix();
     shadow.bias = -0.0004;
     shadow.normalBias = 0.08;
-    scene.add(this.storeSky, this.storeKey, this.storeKey.target, this.sky, this.sun, this.sun.target);
+    scene.add(
+      this.storeSky,
+      this.storeKey,
+      this.storeKey.target,
+      this.sky,
+      this.sun,
+      this.sun.target,
+    );
     this.apply();
   }
 
@@ -141,20 +164,23 @@ export class Atmosphere {
 
   private apply(): void {
     const f = this.outdoor;
-    this.storeSky.intensity = STORE_SKY * (1 - 0.55 * f);
-    this.storeKey.intensity = 1.4 * (1 - 0.55 * f);
+    const indoors = 1 - (1 - STORE_LIGHT_OUTDOORS) * f;
+    this.storeSky.intensity = STORE_SKY * indoors;
+    this.storeKey.intensity = 1.4 * indoors;
     const m = this.mood * f;
-    this.sky.intensity = 1.1 * f;
+    this.sky.intensity = OUTDOOR_SKY * f;
     this.sky.color.copy(this.skyColor).lerp(COLD_SKY, m);
     this.sky.groundColor.copy(this.groundColor).lerp(COLD_GROUND, m);
-    this.sun.intensity = 2.4 * f * (1 - 0.3 * this.mood);
+    // Squared: through the half-open doors the sun must not light the store's interior.
+    this.sun.intensity = SUN * f * f * (1 - 0.2 * this.mood);
     this.sun.color.copy(this.sunColor).lerp(COLD_SUN, m);
     this.renderer.toneMappingExposure =
       DEFAULT_EXPOSURE + (OUTDOOR_EXPOSURE - DEFAULT_EXPOSURE) * f - 0.04 * m;
     if (this.environments) {
       const { outdoor, weight } = environmentBlend(f);
       this.scene.environment = outdoor ? this.environments.outdoor : this.environments.store;
-      this.scene.environmentIntensity = (outdoor ? OUTDOOR_ENVIRONMENT : STORE_ENVIRONMENT) * weight;
+      this.scene.environmentIntensity =
+        (outdoor ? OUTDOOR_ENVIRONMENT : STORE_ENVIRONMENT) * weight;
     }
   }
 }

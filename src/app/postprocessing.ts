@@ -1,22 +1,17 @@
 // Post-processing chain (docs/TECH.md §07: sparing effects, off in reduced quality):
-//   scene (half-float, linear) → GTAO → bloom → tone mapping + sRGB → SMAA
+//   scene (half-float, linear) → GTAO → bloom → tone mapping + sRGB → grade → SMAA
 // Tone mapping and exposure stay owned by the renderer (OutputPass reads them each frame, so the
 // Atmosphere's exposure blend keeps working). The hand-held scanner is drawn afterwards,
 // straight to the screen, as before.
-import {
-  type Camera,
-  Mesh,
-  type Object3D,
-  type Scene,
-  Vector2,
-  type WebGLRenderer,
-} from "three";
+import { type Camera, Mesh, type Object3D, type Scene, Vector2, type WebGLRenderer } from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { GRADE_SHADER, gradeFor } from "./grade";
 
 /**
  * Tuning, in linear units. The store already carries baked occlusion (lightmap), so GTAO only
@@ -24,7 +19,14 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
  * surfaces so that only emitters (ceiling panels, signs, the sun disc) glow.
  */
 export const POST_SETTINGS = {
-  ao: { radius: 0.45, distanceExponent: 1.5, thickness: 1.2, scale: 1.0, samples: 12, distanceFallOff: 1.0 },
+  ao: {
+    radius: 0.45,
+    distanceExponent: 1.5,
+    thickness: 1.2,
+    scale: 1.0,
+    samples: 12,
+    distanceFallOff: 1.0,
+  },
   aoIntensity: 0.55,
   bloom: { strength: 0.32, radius: 0.55, threshold: 1.05 },
   /** Bloom threshold in full sun: sunlit white paint and road markings stay below it, the sun disc does not. */
@@ -36,6 +38,7 @@ export class PostProcessing {
   private readonly composer: EffectComposer;
   private readonly ao: GTAOPass;
   private readonly bloom: UnrealBloomPass;
+  private readonly grade: ShaderPass;
   private readonly hiddenForAO: Object3D[];
 
   /**
@@ -69,6 +72,8 @@ export class PostProcessing {
     this.bloom = new UnrealBloomPass(new Vector2(512, 512), strength, radius, threshold);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
+    this.grade = new ShaderPass(GRADE_SHADER);
+    this.composer.addPass(this.grade);
     this.composer.addPass(new SMAAPass());
   }
 
@@ -85,10 +90,18 @@ export class PostProcessing {
     });
   }
 
-  /** `outdoor` in [0, 1] (Atmosphere): in the sun, lit surfaces exceed the store's bloom threshold. */
-  setOutdoor(outdoor: number): void {
+  /**
+   * `outdoor` and `mood` in [0, 1] (Atmosphere): in the sun, lit surfaces exceed the store's
+   * bloom threshold; the grade follows the zone.
+   */
+  setZone(outdoor: number, mood: number): void {
     const { threshold } = POST_SETTINGS.bloom;
     this.bloom.threshold = threshold + (POST_SETTINGS.bloomThresholdOutdoor - threshold) * outdoor;
+    const grade = gradeFor(outdoor, mood);
+    const uniforms = this.grade.uniforms;
+    for (const key of ["gain", "lift", "saturation", "contrast", "vignette"] as const) {
+      uniforms[key]!.value = grade[key];
+    }
   }
 
   /** Size in CSS pixels; the pixel ratio comes from the renderer. */

@@ -142,7 +142,15 @@ describe("ChainTimeline", () => {
 
 describe("ChainTimeline, carry steps", () => {
   const carry: TimelineStep[] = [
-    { id: "load", event: "load", durationSec: 10, captionId: "c", from: "HALL", to: "TRUCK", carry: true },
+    {
+      id: "load",
+      event: "load",
+      durationSec: 10,
+      captionId: "c",
+      from: "HALL",
+      to: "TRUCK",
+      carry: true,
+    },
   ];
 
   /** Two groups of unit meshes whose geometry sits at its slot, origins at the group's. */
@@ -166,7 +174,8 @@ describe("ChainTimeline, carry steps", () => {
     return root;
   }
 
-  const unit = (root: Object3D, group: string, i: number) => root.getObjectByName(group)!.children[i]!;
+  const unit = (root: Object3D, group: string, i: number) =>
+    root.getObjectByName(group)!.children[i]!;
 
   it("shows every unit in the hall before, and in the truck after, each at its own slot", () => {
     const root = slots();
@@ -175,7 +184,8 @@ describe("ChainTimeline, carry steps", () => {
     expect([visible(root, "HALL"), visible(root, "TRUCK")]).toEqual([3, 0]);
     timeline.apply(evaluate(carry, 10));
     expect([visible(root, "HALL"), visible(root, "TRUCK")]).toEqual([0, 3]);
-    for (let i = 0; i < 3; i++) expect(unit(root, "TRUCK", i).position.toArray()).toEqual([0, 0, 0]);
+    for (let i = 0; i < 3; i++)
+      expect(unit(root, "TRUCK", i).position.toArray()).toEqual([0, 0, 0]);
   });
 
   it("moves the units one after another, between the two slots, on an arc", () => {
@@ -199,7 +209,8 @@ describe("ChainTimeline, carry steps", () => {
     const timeline = new ChainTimeline(root, carry);
     timeline.apply(evaluate(carry, 2));
     timeline.apply(evaluate(carry, 0));
-    for (let i = 0; i < 3; i++) expect(unit(root, "TRUCK", i).position.toArray()).toEqual([0, 0, 0]);
+    for (let i = 0; i < 3; i++)
+      expect(unit(root, "TRUCK", i).position.toArray()).toEqual([0, 0, 0]);
     expect(visible(root, "TRUCK")).toBe(0);
   });
 });

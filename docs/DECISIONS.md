@@ -144,6 +144,18 @@ Arbitrages entre DA.md, GDD.md et TECH.md, validés le 2026-10-18. En cas de con
 - Mise en scène : à la révélation, lumière plus froide et plus plate (`Atmosphere.setMood`, amortie, conservée avec « Réduire les mouvements » car ce n'est pas un mouvement), puis cadrage lent vers `ANCHOR_*_WIDE` (supprimé en mouvements réduits).
 - Repères sur le site (`StageMarkers`) : chaque repère cite un cartel existant, donc sa source et son statut ; aucune donnée n'est écrite dans le repère. Œufs : `eggs.system` (cages) et `eggs.site` ; bœuf : `beef.recap.welfare` (EFSA) et `beef.site`.
 
+## Rendu abouti (lumière, matière, vie)
+
+- Lumière extérieure : soleil fort en trois-quarts contre-jour, remplissage faible, éclairage du magasin presque éteint dehors. Les ombres portées donnent le relief du site (DA §03 « ombres directionnelles, contraste local »). L'intensité du soleil suit le carré du mélange intérieur/extérieur : il n'éclaire pas le magasin par les portes entrouvertes.
+- Brume de hauteur (`src/world/heightFog.ts`) : dense au fond de la vallée, claire en altitude. Elle remplace la formule de `FogExp2` dans tous les matériaux par un patch unique des shader chunks ; `scene.fog` reste la source de la couleur et du terme de distance.
+- Ciel : couche de nuages procédurale lente dans `SkyDome` ; les ombres de nuages au sol viennent du même champ (`src/world/WorldFx.ts`) et n'atténuent que la lumière directe.
+- Étalonnage par zone après le tone mapping (`src/app/grade.ts`) : magasin ivoire, jour chaud, site industriel froid et désaturé (DA §03). Absent en qualité réduite, comme le reste du post-processing.
+- Sol du magasin satiné (DA §02 A) : reflet planaire 512 px flouté par ses mipmaps (`src/world/FloorReflection.ts`), dessiné seulement quand le joueur est sur le sol, coupé en qualité réduite.
+- Vie : vent dans les feuillages (`M_FOLIAGE_*`), respiration et hochement de tête des animaux (`M_ANIMAL_*`, attribut `_PHASE`), poussière dans le contre-jour et quelques oiseaux lointains (`src/world/Ambience.ts`). Tout s'arrête avec « Réduire les mouvements ».
+- Pas de vapeur ni de fumée sur les bâtiments : ce serait affirmer un fait non sourcé sur leur fonctionnement.
+- Corrections de matériaux au chargement (`StoreWorld.tuneMaterial`) : les imprimés (banderole, tracts) ignorent la lightmap, qui les grisait ; le reflet des vitres des vitrines est atténué pour ne pas voiler les produits.
+- Marchandises : atlas d'emballages fictifs (`M_PACK_ATLAS`), barres à la place du texte, aucun chiffre, aucune marque.
+
 ## Entrées
 
 - Touches lues via `KeyboardEvent.code` : ZQSD (AZERTY) et WASD (QWERTY) correspondent aux mêmes codes physiques.

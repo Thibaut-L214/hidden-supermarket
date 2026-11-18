@@ -553,6 +553,8 @@ def export_glb(path: str) -> None:
         # Baked ambient occlusion travels as COLOR_0 (three.js multiplies it into the albedo).
         export_vertex_color="NAME",
         export_vertex_color_name=AO_ATTRIBUTE,
+        # Attributes named with a leading underscore (`_PHASE`, see lowpoly.py) travel as is.
+        export_attributes=True,
         use_selection=False,
         use_visible=False,
     )

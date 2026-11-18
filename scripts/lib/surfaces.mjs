@@ -28,9 +28,27 @@ function textureCache(doc) {
   };
 }
 
+/**
+ * Vertex colours written by blender/scripts/lowpoly.py (baked tint × occlusion) leave Blender as
+ * the custom attribute `_COLOR`, because its exporter only fills COLOR_0 for the first material
+ * of a mesh. They become COLOR_0 here. Returns how many primitives were converted.
+ */
+export function applyBakedColours(doc) {
+  let converted = 0;
+  for (const mesh of doc.getRoot().listMeshes()) {
+    for (const primitive of mesh.listPrimitives()) {
+      const colour = primitive.getAttribute("_COLOR");
+      if (!colour) continue;
+      primitive.setAttribute("COLOR_0", colour).setAttribute("_COLOR", null);
+      converted += 1;
+    }
+  }
+  return converted;
+}
+
 /** Returns how many materials received a surface set. */
 export function applySurfaces(doc) {
-  const { sets, goods, brand = {}, materials: mapping } = JSON.parse(
+  const { sets, goods, brand = {}, atlases = {}, materials: mapping } = JSON.parse(
     readFileSync(resolve(TEXTURES, "surfaces.json"), "utf8"),
   );
   const texture = textureCache(doc);
@@ -64,6 +82,19 @@ export function applySurfaces(doc) {
     material
       .setBaseColorFactor([1, 1, 1, 1])
       .setBaseColorTexture(texture(file, file.replace(/\W+/g, "_")));
+    bound += 1;
+  }
+  // Printed atlases (packaging, labels, posters): UV0 is authored by the builders, the image is
+  // the colour and its normal map carries the pack edges.
+  for (const material of doc.getRoot().listMaterials()) {
+    const atlas = atlases[material.getName()];
+    if (!atlas) continue;
+    material.setBaseColorTexture(texture(atlas.color, atlas.color.replace(/\W+/g, "_")));
+    if (atlas.normal) {
+      material
+        .setNormalTexture(texture(atlas.normal, atlas.normal.replace(/\W+/g, "_")))
+        .setNormalScale(atlas.normalScale ?? 1);
+    }
     bound += 1;
   }
   // UV0 is dead weight on primitives whose material took no texture.
